@@ -33,6 +33,7 @@
 <header>
   <h1>assembly-development 流水线看板</h1>
   <div class="meta" id="meta">加载中…</div>
+  <span class="meta" id="refresh-indicator" hidden>已刷新 <time id="refresh-at" datetime="">—</time> · <time id="refresh-ago" datetime="" data-relative>刚刚</time></span>
 </header>
 <div id="banner" role="status"></div>
 <main>
@@ -43,7 +44,7 @@
   <section id="sec-worktrees" hidden><h2>Worktrees</h2><table><thead><tr><th>任务</th><th>路径</th><th>分支</th><th>状态</th></tr></thead><tbody id="worktrees-body"></tbody></table></section>
   <section id="sec-evidence" hidden><h2>证据</h2><table><thead><tr><th>任务</th><th>类型</th><th>路径</th><th>结论</th><th>sha256</th></tr></thead><tbody id="evidence-body"></tbody></table></section>
 </main>
-<script src="/app.js"></script>
+<script type="module" src="/app.js"></script>
 <noscript>需要 JavaScript 才能查看实时数据。快照文件位于 run/snapshots/（由脚本生成）。</noscript>
 </body>
 </html>
