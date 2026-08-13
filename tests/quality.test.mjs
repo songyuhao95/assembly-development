@@ -11,7 +11,8 @@ const root = path.join(tmp, 'proj');
 mkdirSync(root, { recursive: true });
 
 function run(reportFile) {
-  return spawnSync(process.execPath, [path.resolve('scripts/validate-report.mjs'), reportFile, '--root', root], { encoding: 'utf8' });
+  // 报告路径按 validate-report 语义从调用目录解析，故传绝对路径；--root 用于证据
+  return spawnSync(process.execPath, [path.resolve('scripts/validate-report.mjs'), path.join(root, reportFile), '--root', root], { encoding: 'utf8' });
 }
 
 const good = {
