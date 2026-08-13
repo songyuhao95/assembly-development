@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { appendEvent } from './lib/event-append.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -163,9 +163,12 @@ function push(args) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
 if (cmd === 'check') process.exit(check());
 else if (cmd === 'push') process.exit(push(rest));
 else {
   console.error('usage: git-remote.mjs check | push [--branch b] [--tag t] [--allow-insecure]');
   process.exit(2);
+}
 }
