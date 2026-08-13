@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const RUNTIME = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ROOT, 'run', '.runtime');
+// pointer.path 约定：相对 RUN 目录（run/），与 snapshot.mjs publish 一致
+const RUN = path.dirname(RUNTIME);
 const POINTER = path.join(RUNTIME, 'current-snapshot.json');
 const DASHBOARD_META = path.join(RUNTIME, 'dashboard.json');
 
@@ -45,7 +47,7 @@ function readSnapshot() {
   } catch {
     return null;
   }
-  const snapPath = path.join(RUNTIME, pointer.path);
+  const snapPath = path.join(RUN, pointer.path);
   if (!existsSync(snapPath)) return null;
   try {
     return JSON.parse(readFileSync(snapPath, 'utf8'));
