@@ -1,10 +1,10 @@
 # 外部 Skill 依赖
 
-本插件不内置第三方 skill；会话启动自检检查以下依赖，缺失时由主会话向用户确认后安装（安装位置：`~/.claude/skills` 或本项目 `.claude/skills`）。
+本插件不内置第三方 skill；会话启动自检检查以下依赖，缺失时由主会话向用户确认后安装（安装位置：用户级 skill 目录，Claude Code 为 `~/.claude/skills`，Codex 为 `~/.agents/skills`）。
 
 | skill | 用途 | 来源 | 锁定 |
 |---|---|---|---|
-| grill-me | 需求澄清多轮提问（主会话运行） | 本机 `~/.claude/skills/grill-me` | 本地已有 |
+| grill-me | 需求澄清多轮提问（主会话运行） | 本机用户级 skill 目录（`~/.claude/skills/grill-me`） | 本地已有 |
 | web-design-guidelines | 前端可访问性/性能/UX 检查 | https://github.com/vercel-labs/agent-skills | commit `97eb2a20032f0833e3d317162208a60385b0f96e` |
 | design-taste-frontend | 前端设计审美 | https://github.com/leonxlnx/taste-skill（`skills/taste-skill/`） | commit `55b952d2f9bd5b092d2f4b87fdbcf205a1a5ccc5` |
 | ui-ux-pro-max | UI/UX 最大化质量 | https://github.com/nextlevelbuilder/ui-ux-pro-max-skill | commit `97eb2a20032f0833e3d317162208a60385b0f96e` |

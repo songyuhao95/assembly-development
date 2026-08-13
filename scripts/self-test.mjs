@@ -63,6 +63,14 @@ for (const s of SCRIPTS) {
   check(`scripts/${s}.mjs`, existsSync(path.join(ROOT, 'scripts', `${s}.mjs`)));
 }
 
+// 6. Codex 适配层（.agents skill、.codex hooks/rules/agents、AGENTS.md）
+check('Codex skill: .agents/skills/assembly-development/SKILL.md', existsSync(path.join(ROOT, '.agents', 'skills', 'assembly-development', 'SKILL.md')));
+check('Codex hooks: .codex/hooks.json', existsSync(path.join(ROOT, '.codex', 'hooks.json')));
+check('Codex rules: .codex/rules/assembly-development.rules', existsSync(path.join(ROOT, '.codex', 'rules', 'assembly-development.rules')));
+check('Codex agents: asm-worker.toml', existsSync(path.join(ROOT, '.codex', 'agents', 'asm-worker.toml')));
+check('Codex agents: asm-verifier.toml', existsSync(path.join(ROOT, '.codex', 'agents', 'asm-verifier.toml')));
+check('AGENTS.md', existsSync(path.join(ROOT, 'AGENTS.md')));
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\nself-test: ${results.length - failed.length}/${results.length} 项通过`);
 if (failed.length) {

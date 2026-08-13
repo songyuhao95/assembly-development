@@ -1,0 +1,47 @@
+# assembly-development 流水线红线（execpolicy 硬阻断层）
+#
+# 加载位置：<repo>/.codex/rules/（项目受信后生效；也可复制到 ~/.codex/rules/ 用户级）
+# 自测：codex execpolicy check --rules .codex/rules/assembly-development.rules -- git reset --hard
+# 语义：命令 token 前缀精确匹配；多条命中取最严（forbidden > prompt > allow）；
+#       bash -lc 包裹的线性命令链会被拆分逐条判定；--yolo/--dangerously-bypass-approvals 也无法绕过 forbidden。
+
+# 禁止静默初始化仓库（无 Git 模式需显式用户批准）
+prefix_rule(
+    pattern = ["git", "init"],
+    decision = "forbidden",
+    justification = "禁止静默 git init；无 Git 串行降级需用户明确批准",
+)
+
+# 禁止硬重置与清理未跟踪文件（保护用户/基线变更）
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "禁止硬重置；回退用 git revert 或与用户确认",
+)
+
+prefix_rule(
+    pattern = ["git", "clean", ["-fd", "-fdx", "-f", "-df"]],
+    decision = "forbidden",
+    justification = "禁止清理未跟踪文件（有数据丢失风险）",
+)
+
+# 禁止 force push（含 -f 别名）；force-with-lease 不受影响
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f"]],
+    decision = "forbidden",
+    justification = "禁止 force push；重写历史必须经用户明确批准",
+)
+
+# 一切推送都需人工确认（对外发布动作）
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "推送是发布动作，需人工确认",
+)
+
+# 禁止删除 .git
+prefix_rule(
+    pattern = ["rm", "-rf", ".git"],
+    decision = "forbidden",
+    justification = "禁止删除 .git 目录",
+)

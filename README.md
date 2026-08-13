@@ -39,6 +39,25 @@ node scripts/dashboard-start.mjs   # 打印 http://127.0.0.1:<port>/
 node scripts/dashboard-stop.mjs
 ```
 
+## Codex 用户
+
+同一套流水线在 Codex CLI 上可用（`.agents/skills/` + `.codex/` 适配层）：
+
+```bash
+# 首次使用：在 codex 会话内确认项目信任（trust），并按提示 /hooks 审查一次
+codex
+# 会话内：按 assembly-development skill 开始流水线
+```
+
+Codex 侧的强制边界与 Claude 同强度：
+
+- **execpolicy 规则**（`.codex/rules/assembly-development.rules`）：`git init` / `git reset --hard` / `git clean -fd` / `git push --force` / `rm -rf .git` 硬阻断（`--yolo` 也无法绕过）；一切 `git push` 需人工确认。
+- **hooks**（`.codex/hooks.json`）：与 Claude 同构的事件门禁（PreToolUse/SubagentStop/Stop 等），复用同一批 Node 脚本。
+- **代理**（`.codex/agents/`）：`asm-worker`（实现，workspace-write 沙箱）与 `asm-verifier`（独立验证，read-only 沙箱）。
+- 项目级配置仅在项目受信后生效；如需全局生效可把 rules/hooks 复制到 `~/.codex/`。
+
+本机自测：`codex execpolicy check --rules .codex/rules/assembly-development.rules -- git reset --hard`。
+
 人工门禁 G0–G5 的定义见 `docs/runbook.md`。**沉默、模糊回答或模型推断都不构成批准。**
 
 ## 目录

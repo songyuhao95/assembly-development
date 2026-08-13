@@ -53,3 +53,19 @@ RUN_ID + TASK_ID + PHASE + CONTRACT_ID + CONTRACT_VERSION + CONTRACT_SHA256
 
 - 无 Git：串行 + 前后快照 + hash manifest，标记 `DEGRADED_SERIAL_NO_GIT`；绝不静默 `git init`。
 - 推送失败：容错链（默认 TLS → schannel → ssh → 经用户确认一次性 sslVerify=false），全失败 local-only 并标记未发布。
+
+## 平台适配层
+
+同一套流程、合同、状态脚本在两个客户端上运行：
+
+| 层 | Claude Code | Codex CLI |
+|---|---|---|
+| Skill 真源 | `.claude/skills/assembly-development/` | `.agents/skills/assembly-development/`（references 与 Claude 副本字节一致，sync 测试保证） |
+| 会话指令 | SKILL.md（自动发现） | SKILL.md + `AGENTS.md` |
+| 硬阻断（命令黑名单） | `.claude/settings.json` permissions.deny + PreToolUse hook | `.codex/rules/*.rules`（execpolicy forbidden，`--yolo` 不可绕过）+ PreToolUse hook |
+| 生命周期门禁 | `.claude/settings.json` hooks（7 事件） | `.codex/hooks.json`（6 事件，复用同一批脚本；无 PostToolUseFailure/StopFailure，由 PostToolUse 自适应） |
+| 执行代理 | `general-purpose` + 合同注入 | `asm-worker`（workspace-write）/ `asm-verifier`（read-only）+ 合同注入 |
+| 状态/合同/门禁/DAG/仪表盘 | 同一批 `scripts/*.mjs`（平台无关） | 同左 |
+| 前提 | — | 项目需被 trust 才能加载项目级 rules/hooks/config |
+
+两个平台都遵守同一纪律：合同未 seal 不派发、Gate 未批准不推进、报告无证据不通过。
