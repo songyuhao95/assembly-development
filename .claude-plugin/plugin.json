@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-plugin.json",
   "name": "assembly-development",
+  "version": "0.1.0",
   "description": "流水线式多 agent 开发编排：主会话协调 + 任务合同驱动的短生命周期 subagent 流水线（clarify → plan → implement → integrate → verify → release）。",
   "author": {
     "name": "songyuhao95"
