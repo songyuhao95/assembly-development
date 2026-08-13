@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/claude-plugin.json",
+  "name": "assembly-development",
+  "description": "流水线式多 agent 开发编排：主会话协调 + 任务合同驱动的短生命周期 subagent 流水线（clarify → plan → implement → integrate → verify → release）。",
+  "author": {
+    "name": "songyuhao95"
+  },
+  "repository": "https://github.com/songyuhao95/assembly-development",
+  "license": "MIT",
+  "skills": ["./.claude/skills"]
+}

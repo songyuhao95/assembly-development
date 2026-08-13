@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+
+# 运行时状态（可由 events 重建，不入库）
+run/snapshots/
+run/projections/
+run/.runtime/
+
+# 并行任务 worktree（.worktrees/ 前缀）
+.worktrees/
+*.worktree/
+
+# 临时文件
+*.tmp
+*.bak
+
+# 本地个人配置
+.claude/settings.local.json
