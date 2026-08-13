@@ -13,15 +13,16 @@ function fail(msg) {
 
 const file = process.argv[2];
 if (!file) {
-  console.error('usage: validate-report.mjs <report.json> [--root <dir>]');
+  console.error('usage: validate-report.mjs <report.json> [--root <evidence-root-dir>]');
   process.exit(2);
 }
+// --root 只用于证据路径解析；报告文件始终按当前目录解析
 const rootIdx = process.argv.indexOf('--root');
-const root = rootIdx >= 0 ? process.argv[rootIdx + 1] : process.cwd();
+const evidenceRoot = rootIdx >= 0 ? process.argv[rootIdx + 1] : process.cwd();
 
 let report;
 try {
-  report = JSON.parse(readFileSync(path.resolve(root, file), 'utf8'));
+  report = JSON.parse(readFileSync(file, 'utf8'));
 } catch (err) {
   fail(`cannot read report: ${err.message}`);
 }
@@ -38,7 +39,7 @@ if (!/^sha256:[0-9a-f]{64}$/.test(report.contractSha256)) fail(`invalid contract
 const failing = [];
 for (const ac of report.acResults || []) {
   if (ac.verdict !== 'pass') failing.push(`${ac.acId}: verdict=${ac.verdict}`);
-  else if (ac.evidencePath && !existsSync(path.resolve(root, ac.evidencePath))) {
+  else if (ac.evidencePath && !existsSync(path.resolve(evidenceRoot, ac.evidencePath))) {
     failing.push(`${ac.acId}: evidence missing ${ac.evidencePath}`);
   }
 }
