@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>assembly-development 流水线看板</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --text:#e6e9ef; --muted:#8b93a3; --ok:#3fb950; --warn:#d29922; --err:#f85149; --info:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 "Segoe UI",system-ui,sans-serif; }
+  header { padding:12px 20px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; }
+  header h1 { font-size:16px; margin:0; }
+  .meta { color:var(--muted); font-size:12px; display:flex; gap:16px; flex-wrap:wrap; }
+  main { padding:16px 20px; display:grid; gap:16px; max-width:1200px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 16px; }
+  h2 { font-size:14px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; border:1px solid var(--line); }
+  .pill.ok { color:var(--ok); border-color:var(--ok); }
+  .pill.run { color:var(--info); border-color:var(--info); }
+  .pill.warn { color:var(--warn); border-color:var(--warn); }
+  .pill.err { color:var(--err); border-color:var(--err); }
+  .pill.muted { color:var(--muted); }
+  #banner { display:none; padding:8px 16px; background:var(--warn); color:#111; font-weight:600; }
+  #banner.err { background:var(--err); color:#fff; }
+  #empty { color:var(--muted); padding:24px 0; text-align:center; }
+  .ok-text { color:var(--ok); } .warn-text { color:var(--warn); } .err-text { color:var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>assembly-development 流水线看板</h1>
+  <div class="meta" id="meta">加载中…</div>
+</header>
+<div id="banner" role="status"></div>
+<main>
+  <div id="empty">等待快照发布（node scripts/snapshot.mjs publish &lt;runId&gt;）。</div>
+  <section id="sec-gates" hidden><h2>人工门禁 Gates</h2><div id="gates"></div></section>
+  <section id="sec-tasks" hidden><h2>任务 DAG</h2><table><thead><tr><th>任务</th><th>标题</th><th>状态</th><th>阶段</th><th>依赖</th><th>合同</th></tr></thead><tbody id="tasks-body"></tbody></table></section>
+  <section id="sec-risks" hidden><h2>风险</h2><table><thead><tr><th>ID</th><th>级别</th><th>状态</th><th>条件</th><th>验证任务</th></tr></thead><tbody id="risks-body"></tbody></table></section>
+  <section id="sec-worktrees" hidden><h2>Worktrees</h2><table><thead><tr><th>任务</th><th>路径</th><th>分支</th><th>状态</th></tr></thead><tbody id="worktrees-body"></tbody></table></section>
+  <section id="sec-evidence" hidden><h2>证据</h2><table><thead><tr><th>任务</th><th>类型</th><th>路径</th><th>结论</th><th>sha256</th></tr></thead><tbody id="evidence-body"></tbody></table></section>
+</main>
+<script src="/app.js"></script>
+<noscript>需要 JavaScript 才能查看实时数据。快照文件位于 run/snapshots/（由脚本生成）。</noscript>
+</body>
+</html>
