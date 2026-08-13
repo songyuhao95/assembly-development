@@ -24,6 +24,32 @@ clarify（澄清问题，主会话代问）
 3. **任务 DAG**：G2 冻结的依赖图，只启动依赖已完成的任务（`scripts/tasks.mjs`）。
 4. **hooks/permissions**：`.claude/settings.json` 注册；hook 是硬边界（本机默认 bypassPermissions 时尤其如此）。
 
+## 安装
+
+### npx 一键安装（推荐，双端）
+
+```bash
+# 用户级：Claude skill + Codex skill/rules（所有项目可用）
+npx github:songyuhao95/assembly-development
+
+# 只装一端
+npx github:songyuhao95/assembly-development --claude
+npx github:songyuhao95/assembly-development --codex
+
+# 当前项目完整落地（含 hooks/scripts/dashboard/AGENTS.md/硬边界）
+npx github:songyuhao95/assembly-development --project
+
+# 强制更新已装文件（默认跳过已存在的文件，保护你的修改）
+npx github:songyuhao95/assembly-development --force
+```
+
+### Claude Code 插件市场（备选）
+
+```bash
+claude plugin marketplace add songyuhao95/assembly-development
+claude plugin install assembly-development@songyuhao95/assembly-development
+```
+
 ## 快速开始
 
 ```bash

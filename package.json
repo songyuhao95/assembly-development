@@ -1,0 +1,12 @@
+{
+  "name": "assembly-development-installer",
+  "version": "1.0.0",
+  "description": "assembly-development 流水线的一键安装器：Claude Code 与 Codex 双端 skill/规则/hooks 安装（npx github:songyuhao95/assembly-development）",
+  "license": "MIT",
+  "bin": {
+    "assembly-development": "scripts/install-cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
