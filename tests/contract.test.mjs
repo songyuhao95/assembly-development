@@ -15,7 +15,7 @@ test('extractFrontmatter：解析首部 ```json 块', () => {
   assert.throws(() => extractFrontmatter('no block here'), /no ```json/);
 });
 
-test('validateFrontmatter：必填字段、阶段、禁用 persona 字段', () => {
+test('validateFrontmatter：必填字段、阶段、拒绝 schema 外字段', () => {
   const base = {
     schemaVersion: 1, run_id: 'run-x', task_id: 'T-001', phase: 'implement',
     contract_id: 'c1', objective: 'o', success_definition: 's',

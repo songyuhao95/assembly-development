@@ -2,7 +2,7 @@
 
 ## 总体形态
 
-主会话（coordinator）+ 短生命周期普通 subagent（executors）。没有角色 persona；职责由**阶段**和**任务合同**表达。
+主会话（coordinator）+ 短生命周期普通 subagent（executors）。职责由**阶段**和**任务合同**表达。
 
 ```
 用户 ── 主会话（唯一控制平面：grill-me/AskUserQuestion、审批、合同、阶段推进、恢复）

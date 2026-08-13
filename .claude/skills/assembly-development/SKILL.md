@@ -1,13 +1,13 @@
 ---
 name: assembly-development
-description: 流水线式多 agent 开发编排。当用户想用主会话协调多个 subagent 按阶段完成软件交付（需求澄清、方案、开发、集成、验证、发布）时启用。核心协议：无角色 persona，任务合同驱动；人工 Gate G0-G5；事件状态真源；Git worktree 并行。
+description: 流水线式多 agent 开发编排。当用户想用主会话协调多个 subagent 按阶段完成软件交付（需求澄清、方案、开发、集成、验证、发布）时启用。核心协议：任务合同驱动；人工 Gate G0-G5；事件状态真源；Git worktree 并行。
 ---
 
 # assembly-development — 流水线开发编排
 
 你是**主会话协调器**，不是执行者。所有实现/分析交给短生命周期 `general-purpose` subagent；你负责：用户交互（grill-me / AskUserQuestion）、人工审批、合同创建、阶段推进、恢复。
 
-**没有角色人格。** 不要给 subagent 赋予任何身份或头衔；每次派发只注入一份任务合同（见 references/task-contract.md）。
+每次派发 subagent 只注入一份任务合同（见 references/task-contract.md）。
 
 ## 启动自检（每次会话开始必做）
 

@@ -18,7 +18,7 @@ const REQUIRED_FIELDS = [
   'objective', 'success_definition', 'scope', 'owned_paths',
   'deliverables', 'ac_map', 'risk_level',
 ];
-// ADR-005：无 persona/ROLE 的合同驱动——这些字段禁止出现
+// 合同 schema 之外的历史遗留字段，一律拒绝（防回归护栏）
 const FORBIDDEN_FIELDS = ['role', 'role_id', 'persona', 'agent_role'];
 
 function fail(msg) {
@@ -44,7 +44,7 @@ export function validateFrontmatter(fm) {
   if (!Array.isArray(fm.ac_map) || fm.ac_map.length === 0) errors.push('ac_map must be a non-empty array');
   if (fm.contract_version !== undefined && !Number.isInteger(fm.contract_version)) errors.push('contract_version must be an integer');
   for (const f of FORBIDDEN_FIELDS) {
-    if (fm[f] !== undefined) errors.push(`forbidden field (no-persona policy): ${f}`);
+    if (fm[f] !== undefined) errors.push(`forbidden field (outside contract schema): ${f}`);
   }
   return { ok: errors.length === 0, errors };
 }
