@@ -1,0 +1,12 @@
+# npx 安装包只保留安装器需要的内容
+run/
+tests/
+docs/
+contracts/
+releases/
+third-party/
+.git/
+.gitattributes
+.gitignore
+*.bak
+*.tmp
