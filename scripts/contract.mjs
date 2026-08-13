@@ -8,8 +8,9 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalize, contractHash } from './identity.mjs';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 const CONTRACTS_DIR = path.join(ROOT, 'contracts');
 
 const ALLOWED_PHASES = ['clarify', 'plan', 'implement', 'integrate', 'verify', 'release'];

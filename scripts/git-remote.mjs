@@ -11,8 +11,9 @@ import { appendEvent } from './lib/event-append.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 
 const REMOTE_NAME = 'origin';
 const REMOTE_URL = 'https://github.com/songyuhao95/assembly-development.git';

@@ -1,20 +1,34 @@
 // hooks/lib.mjs — hook 脚本公共工具（无副作用导入）
 //
-// 路径可被环境变量覆盖（测试用）：
-//   ASM_RUN_DIR=<dir>  重定向 run 目录（runtime/events/reports）
+// 项目解析：ASM_PROJECT_DIR 环境变量 > hook 输入的 cwd > 进程 cwd。
+// 运行时脚本可装在用户级目录；hooks 始终针对"当前项目"的 run/ 目录。
+// 测试覆盖：ASM_RUN_DIR 直接重定向 run 目录。
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const RUN_DIR = process.env.ASM_RUN_DIR ? path.resolve(process.env.ASM_RUN_DIR) : path.join(ROOT, 'run');
-export const RUNTIME = path.join(RUN_DIR, '.runtime');
-export const EVENTS = path.join(RUN_DIR, 'events.ndjson');
-export const REPORTS = path.join(RUN_DIR, 'reports');
+export function hookProject(input) {
+  if (process.env.ASM_PROJECT_DIR) return path.resolve(process.env.ASM_PROJECT_DIR);
+  const cwd = input && input.cwd;
+  if (cwd) return path.resolve(cwd);
+  return process.cwd();
+}
 
-// 只有存在活动 run 时才记录事件（避免普通会话污染仓库工作树）
-export function activeRun() {
-  const p = path.join(RUNTIME, 'active-run.json');
+export function runDirFor(input) {
+  if (process.env.ASM_RUN_DIR) return path.resolve(process.env.ASM_RUN_DIR);
+  return path.join(hookProject(input), 'run');
+}
+
+export function eventsPath(input) {
+  return path.join(runDirFor(input), 'events.ndjson');
+}
+
+export function reportsDir(input) {
+  return path.join(runDirFor(input), 'reports');
+}
+
+// 只有存在活动 run 时才记录事件（避免普通会话污染项目工作树）
+export function activeRun(input) {
+  const p = path.join(runDirFor(input), '.runtime', 'active-run.json');
   if (!existsSync(p)) return null;
   try {
     const meta = JSON.parse(readFileSync(p, 'utf8'));

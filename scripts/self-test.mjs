@@ -1,52 +1,58 @@
 #!/usr/bin/env node
 // scripts/self-test.mjs — 会话启动自检（SKILL.md 第一步）
-// 校验：hook 脚本、依赖 skill、状态目录可写、settings hooks 注册。
-import { accessSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+//
+// 三个层面：
+//  1. 运行时完整性（脚本自身所在目录：仓库内 = scripts/，安装后 = ~/.assembly-development/scripts/）
+//  2. 平台强制配置（Claude 用户/项目 settings hooks；Codex 用户/项目 hooks.json、rules）
+//  3. 当前项目（cwd）：状态目录可写、结构存在、依赖 skill 齐备
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT = projectRoot();
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok, detail });
   console.log(`${ok ? '✔' : '✘'} ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
-// 1. hook 脚本
-const HOOKS = [
-  'hook-session-start', 'hook-user-prompt', 'hook-pretool', 'hook-tool-failure',
-  'hook-subagent-stop', 'hook-stop', 'hook-stop-failure',
-];
-for (const h of HOOKS) {
-  check(`hook/${h}.mjs`, existsSync(path.join(ROOT, 'scripts', 'hooks', `${h}.mjs`)));
-}
+// 1. 运行时完整性
+const HOOKS = ['hook-session-start', 'hook-user-prompt', 'hook-pretool', 'hook-tool-failure', 'hook-subagent-stop', 'hook-stop', 'hook-stop-failure'];
+for (const h of HOOKS) check(`运行时 hooks/${h}.mjs`, existsSync(path.join(HERE, 'hooks', `${h}.mjs`)));
+const SCRIPTS = ['identity', 'state', 'contract', 'tasks', 'gate', 'risks', 'snapshot', 'validate-report', 'dashboard-start', 'dashboard-stop', 'git-remote', 'install-cli'];
+for (const s of SCRIPTS) check(`运行时 scripts/${s}.mjs`, existsSync(path.join(HERE, `${s}.mjs`)));
+check('运行时 dashboard/server.mjs', existsSync(path.join(HERE, '..', 'dashboard', 'server.mjs')));
 
-// 2. settings hooks 注册
-let settingsOk = false;
-try {
-  const settings = JSON.parse(readFileSync(path.join(ROOT, '.claude', 'settings.json'), 'utf8'));
-  settingsOk = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUseFailure', 'SubagentStop', 'Stop', 'StopFailure']
-    .every((e) => settings.hooks && settings.hooks[e]);
-} catch {
-  settingsOk = false;
+// 2. 平台强制配置（用户级或项目级任一存在即通过）
+function hooksRegistered(settingsPath) {
+  if (!existsSync(settingsPath)) return false;
+  try {
+    const s = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    return Boolean(s.hooks && s.hooks.PreToolUse && s.hooks.SubagentStop);
+  } catch {
+    return false;
+  }
 }
-check('.claude/settings.json hooks 注册', settingsOk);
+const userClaude = path.join(os.homedir(), '.claude', 'settings.json');
+const projClaude = path.join(PROJECT, '.claude', 'settings.json');
+check('Claude hooks 注册（用户级或项目级）', hooksRegistered(userClaude) || hooksRegistered(projClaude),
+  hooksRegistered(projClaude) ? '项目级' : (hooksRegistered(userClaude) ? '用户级' : '均未注册'));
 
-// 3. 依赖 skill
-const HOME_SKILLS = path.join(os.homedir(), '.claude', 'skills');
-const REQUIRED = ['grill-me', 'web-design-guidelines', 'design-taste-frontend', 'ui-ux-pro-max'];
-const OPTIONAL_CODE = ['code-simplification', 'refactor', 'code-review-excellence', 'tdd'];
-for (const s of REQUIRED) {
-  check(`依赖 skill: ${s}`, existsSync(path.join(HOME_SKILLS, s)));
-}
-const codeOrg = OPTIONAL_CODE.some((s) => existsSync(path.join(HOME_SKILLS, s)));
-check(`代码整理类 skill（${OPTIONAL_CODE.join('/')} 任一）`, codeOrg, codeOrg ? '可用' : '缺失：安装前需用户批准（见 docs/dependencies.md）');
+const userCodexHooks = path.join(os.homedir(), '.codex', 'hooks.json');
+const projCodexHooks = path.join(PROJECT, '.codex', 'hooks.json');
+check('Codex hooks 注册（用户级或项目级）', hooksRegistered(userCodexHooks) || hooksRegistered(projCodexHooks));
 
-// 4. 状态目录可写
+const userRules = path.join(os.homedir(), '.codex', 'rules', 'assembly-development.rules');
+const projRules = path.join(PROJECT, '.codex', 'rules', 'assembly-development.rules');
+check('Codex execpolicy rules（用户级或项目级）', existsSync(userRules) || existsSync(projRules));
+
+// 3. 当前项目
 let writable = false;
 try {
-  const probe = path.join(ROOT, 'run', '.runtime', '.probe');
+  const probe = path.join(PROJECT, 'run', '.runtime', '.probe');
   mkdirSync(path.dirname(probe), { recursive: true });
   writeFileSync(probe, 'ok');
   readFileSync(probe, 'utf8');
@@ -55,21 +61,22 @@ try {
 } catch {
   writable = false;
 }
-check('run/ 状态目录可写', writable);
+check(`项目状态目录可写（${PROJECT}/run）`, writable);
+check('项目 contracts/ 目录', existsSync(path.join(PROJECT, 'contracts')), existsSync(path.join(PROJECT, 'contracts')) ? '' : '缺失：按 SKILL.md 项目引导创建');
 
-// 5. 核心脚本可解析
-const SCRIPTS = ['identity', 'state', 'contract', 'tasks', 'gate', 'risks', 'snapshot', 'validate-report', 'dashboard-start', 'dashboard-stop', 'git-remote'];
-for (const s of SCRIPTS) {
-  check(`scripts/${s}.mjs`, existsSync(path.join(ROOT, 'scripts', `${s}.mjs`)));
+// 4. 依赖 skill（两个客户端目录任一存在即可）
+const HOME_SKILLS_CLAUDE = path.join(os.homedir(), '.claude', 'skills');
+const HOME_SKILLS_CODEX = path.join(os.homedir(), '.agents', 'skills');
+const hasSkill = (name) =>
+  existsSync(path.join(HOME_SKILLS_CLAUDE, name)) ||
+  existsSync(path.join(HOME_SKILLS_CODEX, name)) ||
+  existsSync(path.join(PROJECT, '.claude', 'skills', name)) ||
+  existsSync(path.join(PROJECT, '.agents', 'skills', name));
+for (const s of ['grill-me', 'web-design-guidelines', 'design-taste-frontend', 'ui-ux-pro-max']) {
+  check(`依赖 skill: ${s}`, hasSkill(s));
 }
-
-// 6. Codex 适配层（.agents skill、.codex hooks/rules/agents、AGENTS.md）
-check('Codex skill: .agents/skills/assembly-development/SKILL.md', existsSync(path.join(ROOT, '.agents', 'skills', 'assembly-development', 'SKILL.md')));
-check('Codex hooks: .codex/hooks.json', existsSync(path.join(ROOT, '.codex', 'hooks.json')));
-check('Codex rules: .codex/rules/assembly-development.rules', existsSync(path.join(ROOT, '.codex', 'rules', 'assembly-development.rules')));
-check('Codex agents: asm-worker.toml', existsSync(path.join(ROOT, '.codex', 'agents', 'asm-worker.toml')));
-check('Codex agents: asm-verifier.toml', existsSync(path.join(ROOT, '.codex', 'agents', 'asm-verifier.toml')));
-check('AGENTS.md', existsSync(path.join(ROOT, 'AGENTS.md')));
+check('代码整理类 skill（code-simplification/refactor/… 任一）',
+  ['code-simplification', 'refactor', 'code-review-excellence', 'tdd'].some(hasSkill));
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\nself-test: ${results.length - failed.length}/${results.length} 项通过`);

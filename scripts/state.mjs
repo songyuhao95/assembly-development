@@ -14,8 +14,9 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { appendEvent, readEvents } from './lib/event-append.mjs';
 import { nextRunId } from './identity.mjs';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 const EVENTS = path.join(ROOT, 'run', 'events.ndjson');
 const PROJECTIONS = path.join(ROOT, 'run', 'projections');
 const RUNTIME = path.join(ROOT, 'run', '.runtime');

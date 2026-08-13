@@ -8,8 +8,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 const TASKS_DIR = path.join(ROOT, 'run', 'tasks');
 const PROJECTIONS = path.join(ROOT, 'run', 'projections');
 

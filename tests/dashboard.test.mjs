@@ -11,8 +11,9 @@ const runtimeDir = path.join(tmp, 'runtime');
 mkdirSync(runtimeDir, { recursive: true });
 
 function fixture(revision, generatedAt) {
-  // pointer.path 约定相对 RUN 目录（= runtimeDir 的父目录 tmp），与 publisher 一致
-  mkdirSync(path.join(tmp, 'snapshots'), { recursive: true });
+  // server argv[2] = 项目 run 目录；指针在 <run>/.runtime/，快照在 <run>/snapshots/
+  mkdirSync(path.join(runtimeDir, 'snapshots'), { recursive: true });
+  mkdirSync(path.join(runtimeDir, '.runtime'), { recursive: true });
   const snap = {
     schemaVersion: 1,
     revision,
@@ -27,8 +28,8 @@ function fixture(revision, generatedAt) {
     worktrees: [],
     evidence: [],
   };
-  writeFileSync(path.join(tmp, 'snapshots', `${revision}.json`), JSON.stringify(snap));
-  writeFileSync(path.join(runtimeDir, 'current-snapshot.json'), JSON.stringify({ revision, path: `snapshots/${revision}.json`, generatedAt: snap.generatedAt }));
+  writeFileSync(path.join(runtimeDir, 'snapshots', `${revision}.json`), JSON.stringify(snap));
+  writeFileSync(path.join(runtimeDir, '.runtime', 'current-snapshot.json'), JSON.stringify({ revision, path: `snapshots/${revision}.json`, generatedAt: snap.generatedAt }));
   return snap;
 }
 
@@ -39,7 +40,7 @@ test('启动：/ 与 /app.js 返回 200 + CSP/nosniff', async () => {
   fixture('rev-1');
   child = spawn(process.execPath, [path.resolve('dashboard/server.mjs'), runtimeDir], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((resolve) => child.stdout.once('data', resolve));
-  const meta = JSON.parse(readFileSync(path.join(runtimeDir, 'dashboard.json'), 'utf8'));
+  const meta = JSON.parse(readFileSync(path.join(runtimeDir, '.runtime', 'dashboard.json'), 'utf8'));
   base = meta.url;
   const res = await fetch(`${base}index.html`);
   assert.equal(res.status, 200);
@@ -103,8 +104,8 @@ test('/revision：lastEventSeq 随快照推进（事件流游标跟进 rev-2）'
 });
 
 test('无快照时数据路由 → 503', async () => {
-  rmSync(path.join(runtimeDir, 'current-snapshot.json'), { force: true });
-  rmSync(path.join(tmp, 'snapshots'), { recursive: true, force: true });
+  rmSync(path.join(runtimeDir, '.runtime', 'current-snapshot.json'), { force: true });
+  rmSync(path.join(runtimeDir, 'snapshots'), { recursive: true, force: true });
   assert.equal((await fetch(`${base}snapshot.json`)).status, 503);
   assert.equal((await fetch(`${base}revision`)).status, 503);
   assert.equal((await fetch(`${base}health`)).status, 200); // health 不受影响
@@ -113,8 +114,8 @@ test('无快照时数据路由 → 503', async () => {
 test('恶意字段只作为数据返回（不渲染指令；渲染端只用 textContent）', async () => {
   const evil = fixture('rev-3');
   evil.tasks[0].title = '<script>alert(1)</script>';
-  writeFileSync(path.join(tmp, 'snapshots', 'rev-3.json'), JSON.stringify(evil));
-  writeFileSync(path.join(runtimeDir, 'current-snapshot.json'), JSON.stringify({ revision: 'rev-3', path: 'snapshots/rev-3.json', generatedAt: evil.generatedAt }));
+  writeFileSync(path.join(runtimeDir, 'snapshots', 'rev-3.json'), JSON.stringify(evil));
+  writeFileSync(path.join(runtimeDir, '.runtime', 'current-snapshot.json'), JSON.stringify({ revision: 'rev-3', path: 'snapshots/rev-3.json', generatedAt: evil.generatedAt }));
   const body = await (await fetch(`${base}snapshot.json`)).json();
   assert.ok(body.tasks[0].title.includes('<script>')); // 原样作为 JSON 数据返回，由客户端 textContent 安全渲染
 });

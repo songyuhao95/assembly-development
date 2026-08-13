@@ -9,8 +9,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 const EVENTS = path.join(ROOT, 'run', 'events.ndjson');
 const TASKS_DIR = path.join(ROOT, 'run', 'tasks');
 

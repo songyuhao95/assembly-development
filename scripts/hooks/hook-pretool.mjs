@@ -1,6 +1,6 @@
 // hooks/hook-pretool.mjs — PreToolUse(Bash)：危险命令硬阻断（唯一阻塞点）
 // 红线无论是否有活动 run 都生效（安全边界，不依赖 run 状态）。
-import { activeRun, EVENTS, event, readStdin } from './lib.mjs';
+import { activeRun, eventsPath, event, readStdin } from './lib.mjs';
 import { appendEvent } from '../lib/event-append.mjs';
 
 const input = readStdin();
@@ -23,8 +23,8 @@ for (const { re, why } of DENY_PATTERNS) {
 }
 
 // 记录审计（仅活动 run）
-const run = activeRun();
+const run = activeRun(input);
 if (run) {
-  appendEvent(EVENTS, event('tool.audit', run, { tool: 'Bash', command: command.slice(0, 200) }));
+  appendEvent(eventsPath(input), event('tool.audit', run, { tool: 'Bash', command: command.slice(0, 200) }));
 }
 process.exit(0);

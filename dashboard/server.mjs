@@ -9,10 +9,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '..');
-const RUNTIME = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ROOT, 'run', '.runtime');
-// pointer.path 约定：相对 RUN 目录（run/），与 snapshot.mjs publish 一致
-const RUN = path.dirname(RUNTIME);
+// argv[2] = 项目 run 目录（含 .runtime 与 snapshots），由 dashboard-start.mjs 从项目 cwd 传入
+const RUN = process.argv[2] ? path.resolve(process.argv[2]) : path.join(path.dirname(HERE), 'run');
+const RUNTIME = path.join(RUN, '.runtime');
 const POINTER = path.join(RUNTIME, 'current-snapshot.json');
 const DASHBOARD_META = path.join(RUNTIME, 'dashboard.json');
 

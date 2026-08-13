@@ -3,10 +3,12 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { projectRoot } from './lib/project-root.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = projectRoot();
 const RUNTIME = path.join(ROOT, 'run', '.runtime');
 const META = path.join(RUNTIME, 'dashboard.json');
+const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard', 'server.mjs');
 
 function fail(msg) {
   console.error(`dashboard-start.mjs: ${msg}`);
@@ -28,7 +30,8 @@ if (existsSync(META)) {
 }
 
 mkdirSync(RUNTIME, { recursive: true });
-const child = spawn(process.execPath, [path.join(ROOT, 'dashboard', 'server.mjs')], {
+// server 第一个参数 = 项目 run 目录（快照指针所在）
+const child = spawn(process.execPath, [SERVER, path.join(ROOT, 'run')], {
   detached: true,
   stdio: 'ignore',
   windowsHide: true,

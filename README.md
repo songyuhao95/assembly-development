@@ -26,22 +26,26 @@ clarify（澄清问题，主会话代问）
 
 ## 安装
 
-### npx 一键安装（推荐，双端）
+### npx 一键安装（推荐）
+
+装一次，任何项目里 Claude Code / Codex 调用 skill 即获得**完整功能**：
 
 ```bash
-# 用户级：Claude skill + Codex skill/rules（所有项目可用）
 npx github:songyuhao95/assembly-development
 
 # 只装一端
 npx github:songyuhao95/assembly-development --claude
 npx github:songyuhao95/assembly-development --codex
 
-# 当前项目完整落地（含 hooks/scripts/dashboard/AGENTS.md/硬边界）
-npx github:songyuhao95/assembly-development --project
-
 # 强制更新已装文件（默认跳过已存在的文件，保护你的修改）
 npx github:songyuhao95/assembly-development --force
 ```
+
+安装内容（全部用户级）：
+- `~/.assembly-development/` — 运行时（状态/合同/门禁/DAG/快照脚本 + 仪表盘），命令在安装时模板化为绝对路径
+- `~/.claude/skills/` + `~/.agents/skills/` — 两平台 skill（同一协议）
+- `~/.claude/settings.json`（hooks/permissions 合并）、`~/.codex/hooks.json`、`~/.codex/rules/` — 双平台硬边界
+- 流水线状态与证据落在**项目内**（`run/`、`contracts/`、`docs/`）
 
 ### Claude Code 插件市场（备选）
 
@@ -50,15 +54,19 @@ claude plugin marketplace add songyuhao95/assembly-development
 claude plugin install assembly-development@songyuhao95/assembly-development
 ```
 
+## 跨客户端混用
+
+Claude 写文档、Codex 接手写代码，或反过来——直接切换，无需迁移：状态、合同、事件都在项目内共享；任一端的 Gate 批准对另一端有效；两端的 hooks/rules 各自硬阻断危险命令。继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影即可。
+
 ## 快速开始
 
 ```bash
 # 1. 依赖自检（grill-me、web-design-guidelines、design-taste-frontend、
 #    ui-ux-pro-max、代码整理 skill；缺失项经你批准后安装）
-node scripts/self-test.mjs
+node scripts/self-test.mjs    # 安装后：node "~/.assembly-development/scripts/self-test.mjs"
 
-# 2. 开始流水线（主会话内）
-/assembly-development start <你的需求>
+# 2. 开始流水线（Claude Code 或 Codex 会话内）
+#    调用 assembly-development skill 即可（首次会自动引导项目结构）
 
 # 3. 实时跟进（只读旁路仪表盘）
 node scripts/dashboard-start.mjs   # 打印 http://127.0.0.1:<port>/
@@ -67,22 +75,19 @@ node scripts/dashboard-stop.mjs
 
 ## Codex 用户
 
-同一套流水线在 Codex CLI 上可用（`.agents/skills/` + `.codex/` 适配层）：
+npx 安装后（见上），Codex 与 Claude 完全同权：
 
 ```bash
-# 首次使用：在 codex 会话内确认项目信任（trust），并按提示 /hooks 审查一次
+# 首次使用：在 codex 会话内按提示 /hooks 审查批准一次（hook 信任按内容 hash 持久化）
 codex
-# 会话内：按 assembly-development skill 开始流水线
+# 会话内：调用 assembly-development skill 即开始流水线（首次自动引导项目结构）
 ```
 
 Codex 侧的强制边界与 Claude 同强度：
 
-- **execpolicy 规则**（`.codex/rules/assembly-development.rules`）：`git init` / `git reset --hard` / `git clean -fd` / `git push --force` / `rm -rf .git` 硬阻断（`--yolo` 也无法绕过）；一切 `git push` 需人工确认。
-- **hooks**（`.codex/hooks.json`）：与 Claude 同构的事件门禁（PreToolUse/SubagentStop/Stop 等），复用同一批 Node 脚本。
-- **代理**（`.codex/agents/`）：`asm-worker`（实现，workspace-write 沙箱）与 `asm-verifier`（独立验证，read-only 沙箱）。
-- 项目级配置仅在项目受信后生效；如需全局生效可把 rules/hooks 复制到 `~/.codex/`。
-
-本机自测：`codex execpolicy check --rules .codex/rules/assembly-development.rules -- git reset --hard`。
+- **execpolicy 规则**（`~/.codex/rules/assembly-development.rules`）：`git init` / `git reset --hard` / `git clean -fd` / `git push --force` / `rm -rf .git` 硬阻断（`--yolo` 也无法绕过）；一切 `git push` 需人工确认。
+- **hooks**（`~/.codex/hooks.json`）：与 Claude 同构的事件门禁（PreToolUse/SubagentStop/Stop 等），复用同一批 Node 脚本（运行时内）。
+- 用户级 rules/hooks 全局生效，无需逐项目配置。
 
 人工门禁 G0–G5 的定义见 `docs/runbook.md`。**沉默、模糊回答或模型推断都不构成批准。**
 
