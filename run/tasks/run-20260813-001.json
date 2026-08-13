@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-20260813-001",
+  "frozenAt": "2026-08-13T06:37:25.264Z",
+  "baseCommit": "0f8b7578895e02b0df756b01517d1229da83f90e",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "看板相对时间显示（60s/60min/24h 分档）与轮询刷新指示（前端）",
+      "contractId": "contract-dogfood-t001-v1",
+      "dependsOn": [],
+      "phase": "implement",
+      "worktree": null,
+      "ownedPaths": [
+        "dashboard/app.js",
+        "dashboard/index.html",
+        "tests/dashboard-ui.test.mjs"
+      ],
+      "acceptance": []
+    },
+    {
+      "id": "T-002",
+      "title": "/revision 返回 lastEventSeq（从 pointer 派生，不改 envelope schema）",
+      "contractId": "contract-dogfood-t002-v1",
+      "dependsOn": [],
+      "phase": "implement",
+      "worktree": null,
+      "ownedPaths": [
+        "dashboard/server.mjs",
+        "tests/dashboard.test.mjs"
+      ],
+      "acceptance": []
+    }
+  ]
+}

@@ -111,6 +111,15 @@ switch (cmd) {
     console.log(contractHash(fm));
     break;
   }
+  case 'sha256-file': {
+    const p = path.resolve(ROOT, args[0]);
+    if (!existsSync(p)) {
+      console.error(`identity.mjs: file not found: ${args[0]}`);
+      process.exit(1);
+    }
+    console.log('sha256:' + sha256Hex(readFileSync(p)));
+    break;
+  }
   case 'next-run-id':
     console.log(nextRunId());
     break;
@@ -118,7 +127,7 @@ switch (cmd) {
     console.log(nextTaskId());
     break;
   default:
-    console.error('usage: identity.mjs canonical|sha256|contract-hash|next-run-id|next-task-id');
+    console.error('usage: identity.mjs canonical|sha256|sha256-file|contract-hash|next-run-id|next-task-id');
     process.exit(2);
 }
 }

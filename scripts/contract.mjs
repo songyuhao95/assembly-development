@@ -63,26 +63,27 @@ export function sealFile(contractId) {
   const { file, text } = readContract(contractId);
   const fm = extractFrontmatter(text);
   const storedHash = fm.contract_sha256;
-  const newHash = contractHash(fm); // 内部已排除 contract_sha256 字段
-  let changed = false;
-  if (!storedHash || storedHash !== newHash) {
-    changed = true;
-    fm.contract_version = Number.isInteger(fm.contract_version) ? fm.contract_version + 1 : 1;
-    fm.contract_sha256 = newHash;
-    const canonical = JSON.stringify(canonicalize(fm), null, 2);
-    const body = text.replace(/^```json\s*\n[\s\S]*?\n```/, (block) => block);
-    // 重写 frontmatter 块
-    const idx = text.indexOf('```json');
-    const end = text.indexOf('\n```', idx);
-    const rebuilt = '```json\n' + canonical + '\n```' + text.slice(end);
-    writeFileSync(file, rebuilt, 'utf8');
+  // 幂等：内容未变则不动
+  if (storedHash && storedHash === contractHash(fm)) {
+    return { contractId, contract_id: fm.contract_id, version: fm.contract_version, sha256: storedHash, changed: false };
   }
+  // 版本先递增，哈希覆盖最终字段（含新版本，不含 contract_sha256 自身）
+  fm.contract_version = Number.isInteger(fm.contract_version) && storedHash ? fm.contract_version + 1 : 1;
+  const newHash = contractHash(fm);
+  fm.contract_sha256 = newHash;
+  const canonical = JSON.stringify(canonicalize(fm), null, 2);
+  // 用原闭合围栏收尾（slice 起点是原围栏前的换行）
+  const idx = text.indexOf('```json');
+  const end = text.indexOf('\n```', idx);
+  if (end < 0) throw new Error('frontmatter block missing closing fence');
+  const rebuilt = '```json\n' + canonical + '\n' + text.slice(end);
+  writeFileSync(file, rebuilt, 'utf8');
   const verdict = validateFrontmatter(fm);
   if (!verdict.ok) {
     console.error(verdict.errors.join('\n'));
     process.exit(2);
   }
-  return { contractId, contract_id: fm.contract_id, version: fm.contract_version, sha256: newHash, changed };
+  return { contractId, contract_id: fm.contract_id, version: fm.contract_version, sha256: newHash, changed: true };
 }
 
 function scan() {

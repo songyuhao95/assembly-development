@@ -110,6 +110,8 @@ function cmdApprove(gate, args) {
   if (idxA < 0 || idxS < 0) fail('--artifact <path> and --sha256 <hex> required');
   const artifact = args[idxA + 1];
   const sha256 = args[idxS + 1];
+  const noteIdx = args.indexOf('--note');
+  const note = noteIdx >= 0 ? args[noteIdx + 1] : null;
   const run = args.includes('--runId') ? args[args.indexOf('--runId') + 1] : activeRunId();
   if (!run) fail('no active run; pass --runId');
   // 幂等：相同 gate+artifact+sha256 已批准则不再追加
@@ -129,9 +131,9 @@ function cmdApprove(gate, args) {
     contractId: null,
     agentId: null,
     actor: 'human',
-    payload: { gate, artifact, sha256, by: 'human' },
+    payload: { gate, artifact, sha256, by: 'human', note },
   });
-  console.log(`gate ${gate} approved: ${artifact}@${sha256}`);
+  console.log(`gate ${gate} approved: ${artifact}@${sha256}${note ? ` (${note})` : ''}`);
 }
 
 const [cmd, ...args] = process.argv.slice(2);

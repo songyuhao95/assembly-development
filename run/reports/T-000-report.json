@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-20260813-001",
+  "taskId": "T-000",
+  "contractId": "contract-dogfood-clarify-v1",
+  "contractSha256": "sha256:c2eaa336301889ceba05e6287cef96e5ee058596ab5b918be1941de87f9deba9",
+  "status": "pass",
+  "acResults": [
+    { "acId": "AC-Q1", "verdict": "pass", "evidencePath": "docs/specs/dogfood-brief.md" }
+  ],
+  "changedFiles": [
+    "docs/specs/dogfood-questions.md",
+    "docs/specs/dogfood-brief.md"
+  ],
+  "commandsRun": [
+    { "command": "node scripts/contract.mjs validate contract-dogfood-clarify-v1", "exitCode": 0 }
+  ],
+  "notes": "P0 六问采用默认假设（依据已批准实施计划 Step 11 的演练授权）；真实项目需用户逐项确认。"
+}
