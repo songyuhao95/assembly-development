@@ -1,0 +1,98 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-session-start.mjs"] }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-user-prompt.mjs"] }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-pretool.mjs"] }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-tool-failure.mjs"] }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "general-purpose",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-subagent-stop.mjs"] }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-stop.mjs"] }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/scripts/hooks/hook-stop-failure.mjs"] }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/state.mjs:*)",
+      "Bash(node scripts/identity.mjs:*)",
+      "Bash(node scripts/contract.mjs:*)",
+      "Bash(node scripts/tasks.mjs:*)",
+      "Bash(node scripts/gate.mjs:*)",
+      "Bash(node scripts/risks.mjs:*)",
+      "Bash(node scripts/snapshot.mjs:*)",
+      "Bash(node scripts/git-remote.mjs:*)",
+      "Bash(node scripts/dashboard-start.mjs:*)",
+      "Bash(node scripts/dashboard-stop.mjs:*)",
+      "Bash(node scripts/self-test.mjs:*)",
+      "Bash(node --test tests/*:*)",
+      "Bash(node --check:*)",
+      "Bash(node --version:*)",
+      "Bash(git --version:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)"
+    ],
+    "deny": [
+      "Bash(git init:*)",
+      "Bash(git init)",
+      "Bash(git reset --hard:*)",
+      "Bash(git reset --hard)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fd)",
+      "Bash(git push --force:*)",
+      "Bash(git push --force)",
+      "Bash(rm -rf .git*)",
+      "Bash(rm -rf:*)"
+    ]
+  }
+}
