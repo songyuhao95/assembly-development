@@ -99,7 +99,11 @@ const server = createServer((req, res) => {
       send(res, 503, JSON.stringify({ ok: false, reason: 'no snapshot published yet' }), { 'Content-Type': 'application/json', ...common });
       return;
     }
-    send(res, 200, JSON.stringify({ revision: snap.revision, generatedAt: snap.generatedAt }), { 'Content-Type': 'application/json', ...common });
+    // lastEventSeq：事件流游标（快照所覆盖事件流中最后一个事件的 eventId）。
+    // 推导链：事件流 eventId → envelope.revision（rebuildProjections）→ pointer.revision（publish 原子写指针）
+    //   → server readSnapshot() 读 pointer，经 pointer.path 读 envelope；lastEventSeq := snap.revision（即 pointer.revision）。
+    // 当前实现下与 revision 同值，但语义分离：revision 是快照标识，lastEventSeq 是客户端判断事件流推进的稳定契约。
+    send(res, 200, JSON.stringify({ revision: snap.revision, generatedAt: snap.generatedAt, lastEventSeq: snap.revision }), { 'Content-Type': 'application/json', ...common });
     return;
   }
   send(res, 404, 'not found\n', { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Security-Policy': CSP });
