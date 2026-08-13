@@ -73,11 +73,32 @@ test('snapshot.json：ETag + 304 协商', async () => {
   assert.equal(notMod.status, 304);
 });
 
+test('snapshot.json：顶层键集合不变（envelope schema 锁定，无新增字段）', async () => {
+  const EXPECTED_KEYS = ['schemaVersion', 'revision', 'runId', 'phase', 'generatedAt', 'staleAfterSeconds', 'state', 'tasks', 'approvals', 'risks', 'worktrees', 'evidence'];
+  const body = await (await fetch(`${base}snapshot.json`)).json();
+  assert.deepEqual(Object.keys(body).sort(), [...EXPECTED_KEYS].sort());
+});
+
+test('/revision：返回 revision/generatedAt/lastEventSeq，lastEventSeq 与 revision 一致', async () => {
+  const res = await fetch(`${base}revision`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(Object.keys(body).sort(), ['generatedAt', 'lastEventSeq', 'revision']);
+  assert.equal(body.lastEventSeq, body.revision);
+  assert.equal(body.revision, 'rev-1');
+});
+
 test('快照热更新：publisher 原子替换后 server 返回新 revision（无锁、无重启）', async () => {
   fixture('rev-2');
   const res = await fetch(`${base}snapshot.json`);
   const body = await res.json();
   assert.equal(body.revision, 'rev-2');
+});
+
+test('/revision：lastEventSeq 随快照推进（事件流游标跟进 rev-2）', async () => {
+  const body = await (await fetch(`${base}revision`)).json();
+  assert.equal(body.lastEventSeq, 'rev-2');
+  assert.equal(body.lastEventSeq, body.revision);
 });
 
 test('无快照时数据路由 → 503', async () => {
