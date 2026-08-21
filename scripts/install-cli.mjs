@@ -2,7 +2,7 @@
 // scripts/install-cli.mjs — assembly-development 一键安装器（v2：用户级全功能，无 --project）
 //
 // 安装内容（全部用户级，装一次任何项目可用）：
-//   ~/.assembly-development/          运行时（scripts/ + dashboard/，供 skill 与 hooks 调用）
+//   ~/.assembly-development/          运行时脚本与模板（供 skill 与 hooks 调用）
 //   ~/.claude/skills/assembly-development/     Claude skill（命令已模板化为绝对路径）
 //   ~/.agents/skills/assembly-development/     Codex skill（同上）
 //   ~/.claude/settings.json                    hooks + permissions 合并（hooks 指向运行时绝对路径）
@@ -175,7 +175,6 @@ function appendBlock(targetPath, marker, block) {
 
 function installRuntime() {
   copyTree(path.join(PKG_ROOT, 'scripts'), path.join(RUNTIME, 'scripts'));
-  copyTree(path.join(PKG_ROOT, 'dashboard'), path.join(RUNTIME, 'dashboard'));
   copyTree(path.join(PKG_ROOT, 'templates'), path.join(RUNTIME, 'templates'));
   // 语法自检：运行时脚本必须可解析
   let bad = 0;
@@ -190,7 +189,7 @@ function installRuntime() {
       }
     }
   }
-  record('运行时安装', bad === 0, `${RUNTIME_POSIX}（scripts + dashboard）`);
+  record('运行时安装', bad === 0, `${RUNTIME_POSIX}（scripts + templates）`);
   return bad === 0;
 }
 
@@ -234,8 +233,6 @@ function installClaude() {
         `Bash(node "${RUNTIME_POSIX}/scripts/risks.mjs:*)`,
         `Bash(node "${RUNTIME_POSIX}/scripts/snapshot.mjs:*)`,
         `Bash(node "${RUNTIME_POSIX}/scripts/git-remote.mjs:*)`,
-        `Bash(node "${RUNTIME_POSIX}/scripts/dashboard-start.mjs:*)`,
-        `Bash(node "${RUNTIME_POSIX}/scripts/dashboard-stop.mjs:*)`,
         `Bash(node "${RUNTIME_POSIX}/scripts/self-test.mjs:*)`,
         `Bash(node "${RUNTIME_POSIX}/scripts/validate-report.mjs:*)`,
       ],

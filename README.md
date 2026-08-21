@@ -1,106 +1,137 @@
 # assembly-development
 
-流水线式多 agent 开发编排：**主会话协调 + 任务合同驱动的短生命周期 subagent 流水线**。
+`assembly-development` 是一个帮助 AI Agent 协作开发的软件交付 Skill。它的重点不是“让 Agent 自己写更多代码”，而是让每一次开发都有清楚的目标、边界、测试和交接记录。
 
-主会话是唯一控制平面，负责用户交互、人工审批和阶段推进；每个普通 `general-purpose` subagent 只接受一份经过批准、权限最小化、可验证的**任务合同**，执行后交回证据。
+## 设计思想
 
-## 四阶段流程
+- **主会话负责方向**：主会话和用户确认需求、方案、任务拆分、进度和最终交付；下级会话只执行被分配的工作。
+- **先文档、再测试、后代码**：需求不清楚不能直接写代码；测试必须先证明目标行为还不存在（RED）。
+- **Tracer bullet 小步交付**：一个任务内部按“一个测试 → 一小段实现 → 通过 → 下一个测试”推进。每一步都能独立验证，失败时容易定位。
+- **按目录分工**：项目、模块、任务分别拥有自己的 Outline、任务清单和 Handover。下级会话不能修改上级约定或测试文件。
+- **机器证据优先**：任务是否完成由测试退出码、测试结果、源文件哈希和 Handover 证据判断，不以 Agent 的口头说明为准。
+- **代码仓库独立**：消费项目的 `app/` 是独立 Git 仓库，只放最终代码；流程文档、合同、测试证据留在项目控制目录。
 
-```
+## 工作流程
+
+唯一的用户可见流程是：
+
+```text
 document → test/RED → code/minimal GREEN → verify/pass
 ```
 
-主会话先把需求固化为方案和任务 DAG，再由测试 owner 冻结 RED；实现会话只做当前 tracer bullet 的最小代码，最后由主会话合并验证。需求、方案、发布和最终交付分别取得用户明确确认；实现不可行或接口改变时回到 document 阶段。
+1. **document**：把模糊需求变成明确约定，再形成方案和可测试的任务清单。项目主会话维护 `Outline_Notes.md`。
+2. **test/RED**：测试 owner 先写行为测试，证明新行为会失败；测试文件和版本被冻结。
+3. **code/minimal GREEN**：实现会话只完成当前 tracer bullet，只修改任务合同允许的目录；测试通过后才能进入下一步。
+4. **verify/pass**：主会话检查所有机器证据、任务交付物、模块结果和项目结果。需求、接口或交付物改变时，回到 document；测试写错时，回到 test/RED。
 
 ## 四层控制
 
-1. **Skill 指令**：流程、合同、门禁的顺序与红线（`.claude/skills/assembly-development/`）。
-2. **持久状态**：`run/events.ndjson` 是运行事实真源（append-only），投影全部由事件重建（`scripts/state.mjs`）。
-3. **任务 DAG**：G2 冻结的依赖图，只启动依赖已完成的任务（`scripts/tasks.mjs`）。
-4. **hooks/permissions**：`.claude/settings.json` 注册；只有平台实际加载并匹配时才提供条件性预防/检测控制，可信 runner/CI 负责准入拒绝。
+1. **Skill 指令**：规定阶段顺序、角色、任务合同、Handover 格式和禁止事项。
+2. **持久状态**：项目的 `run/events.ndjson` 记录事实；任务报告和机器证据可以据此重建。
+3. **任务与目录边界**：任务清单写明交付物、测试命令、允许修改的路径和禁止路径；模块合同与项目 Outline 对下级只读。
+4. **hooks / permissions / 验证**：平台 hook 和规则可以在匹配时提醒或阻止危险操作；测试、哈希、manifest 和主会话合并检查负责最后准入。
 
-## 安装
+> 重要限制：Markdown 说明和 Skill 本身是软约束，不能单独提供不可绕过的文件系统权限。真正的硬阻断取决于平台 sandbox、ACL、execpolicy 和已加载的 hook。没有这些能力时，主会话必须依靠路径检查、差异检查和机器证据拒绝违规交付物。
 
-### npx 一键安装（推荐）
+## 安装与更新
 
-装一次，任何项目里 Claude Code / Codex 调用 skill 即获得**完整功能**：
+在任意终端执行：
 
 ```bash
+# 同时安装 Claude Code 和 Codex 支持（推荐）
 npx github:songyuhao95/assembly-development
 
-# 只装一端
+# 只安装一个客户端
 npx github:songyuhao95/assembly-development --claude
 npx github:songyuhao95/assembly-development --codex
 
-# 显式选择客户端、隔离安装目录并输出机器报告（测试/自动化）
-node scripts/install-cli.mjs --all --home <temp-home> --report <result.json>
-
-# 强制更新已装文件（默认跳过已存在的文件，保护你的修改）
+# 更新已安装文件；默认不会覆盖用户已有文件
 npx github:songyuhao95/assembly-development --force
 ```
 
-安装内容（全部用户级）：
-- `~/.assembly-development/` — 运行时（状态/合同/门禁/DAG/快照脚本 + 仪表盘），命令在安装时模板化为绝对路径
-- `~/.claude/skills/` + `~/.agents/skills/` — 两平台 skill（同一协议）
-- `~/.claude/settings.json`（hooks/permissions 合并）、`~/.codex/hooks.json`、`~/.codex/rules/` — 双平台硬边界
-- 流水线状态与证据落在**项目内**（`run/`、`contracts/`、`docs/`）
+安装器会把运行时脚本和模板放到用户级 `~/.assembly-development/`，把 Skill 放到 `~/.claude/skills/` 与 `~/.agents/skills/`，并合并 Claude hooks、Codex hooks/rules。安装不会把项目的合同、测试、日志或代码复制到用户目录。
 
-### Claude Code 插件市场（备选）
+安装后可以用隔离目录做验证：
 
 ```bash
-claude plugin marketplace add songyuhao95/assembly-development
-claude plugin install assembly-development@songyuhao95/assembly-development
+node scripts/install-cli.mjs --all --home <temporary-home> --report <result.json> --quiet
+node "~/.assembly-development/scripts/self-test.mjs"
 ```
 
-## 跨客户端协作
+本项目不提供 Web 仪表盘。进度通过 `Outline_Notes.md`、任务清单、Handover、`run/events.ndjson` 和测试命令查看，避免额外启动服务和端口管理。
 
-Claude 写文档、Codex 接手写代码，或反过来——直接切换，无需迁移：状态、合同、事件都在项目内共享；继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影即可。两端 Skill 的 references 保持字节一致，客户端入口可以有适配差异。
+## 如何调用
 
-## 快速开始
+在要开发的项目中：
 
-```bash
-# 1. 依赖自检（grill-me、web-design-guidelines、design-taste-frontend、
-#    ui-ux-pro-max、代码整理 skill；缺失项经你批准后安装）
-node scripts/self-test.mjs    # 安装后：node "~/.assembly-development/scripts/self-test.mjs"
+1. 先安装 Skill，并确认当前客户端已经加载它。
+2. 在主会话中调用 `assembly-development` Skill。
+3. 主会话分配唯一会话 ID，读取或创建项目根 `Outline_Notes.md`。
+4. 需求确认、方案确认后，主会话创建模块合同或任务清单，再按合同派发实现会话。
+5. 每个任务会话先读取任务清单，按 RED → 最小 GREEN 循环开发，并维护自己的 Handover。
+6. 主会话只接收测试通过且路径、哈希、交付物都符合约定的结果，最后合并 `app/` 并提交 Git。
 
-# 2. 开始流水线（Claude Code 或 Codex 会话内）
-#    调用 assembly-development skill 即可（首次会自动引导项目结构）
+## 跨客户端混用
 
-# 3. 实时跟进（只读旁路仪表盘）
-node scripts/dashboard-start.mjs   # 打印 http://127.0.0.1:<port>/
-node scripts/dashboard-stop.mjs
+Claude Code 和 Codex 共享同一套项目事实：任务清单、合同、`run/events.ndjson`、测试证据和 Handover。可以用 Claude 写文档、用 Codex 写代码，或反过来。
+
+切换客户端时：
+
+1. 先读取当前任务的 Handover 和最近的机器证据。
+2. 根据 `run/events.ndjson` 重建状态，确认当前阶段和 owner。
+3. 继续当前 bullet；不要跳过 RED，也不要覆盖旧会话的 Handover。
+
+## 跨会话和模块使用
+
+小项目直接由主会话拆分任务并派发 subagent。项目较大且能按独立业务能力划分时，主会话在 Outline 完成后再询问是否拆模块。
+
+模块模式的边界：
+
+- 主会话创建 `M01_Module_Outline_Notes.md`，写明模块目标、工作目录、交付标准和禁止路径。
+- 模块会话只能修改模块工作目录内的下级 `Outline_Notes.md`、任务清单、代码和自己的模块 Handover，绝不能修改 `M01_Module_Outline_Notes.md`。
+- 任务清单命名为 `编号_任务名称.md`，明确测试脚本、交付文件、允许目录和最后一行 `test=true/false` 及机器证据。
+- 任务会话的交接文件命名为 `<任务编号>_<唯一会话ID>_Handover_Record.md`；同一文件只由创建它的会话修改。
+- 模块和任务会话不得修改上级 Outline、模块合同、任务清单或测试脚本。发现需求变化时，停止实现并交回主会话重新 document。
+
+跨会话不共享正在进行的 tracer bullet：新会话先读取上一会话 Handover，重新运行测试确认 RED/GREEN 状态，再继续下一个 bullet。
+
+## 工作目录结构
+
+Skill 发布仓库只包含安装所需内容：
+
+```text
+app/
+├─ .agents/skills/assembly-development/     # Codex Skill 和 references
+├─ .claude/skills/assembly-development/     # Claude Code Skill 和 references
+├─ .codex/agents/                            # 可选 worker/verifier 配置
+├─ .codex/rules/                             # Codex 危险命令规则
+├─ scripts/                                  # 安装器、合同、状态、任务、hooks、验证脚本
+├─ templates/                                # 项目、模块、任务模板
+├─ package.json                              # npx 入口和发布白名单
+├─ README.md
+└─ LICENSE
 ```
 
-## Codex 用户
+消费项目的控制目录通常是：
 
-npx 安装后（见上），Codex 与 Claude 完全同权：
-
-```bash
-# 首次使用：在 codex 会话内按提示 /hooks 审查批准一次（hook 信任按内容 hash 持久化）
-codex
-# 会话内：调用 assembly-development skill 即开始流水线（首次自动引导项目结构）
+```text
+project/
+├─ Outline_Notes.md                          # 项目主会话独占维护
+├─ M01_Module_Outline_Notes.md               # 可选，模块合同，只读
+├─ modules/M01/Outline_Notes.md              # 可选，模块会话维护
+├─ tasks/                                     # 任务清单和测试脚本
+├─ run/                                       # 事件、报告、机器证据、状态投影
+├─ contracts/                                 # 已 seal 的任务合同
+├─ docs/                                      # 需求和方案文档
+└─ app/                                       # 独立 Git 仓库，只放最终代码
 ```
 
-Codex 侧的强制边界与 Claude 同强度：
+## 注意事项与风险
 
-- **execpolicy 规则**（`~/.codex/rules/assembly-development.rules`）：`git init` / `git reset --hard` / `git clean -fd` / `git push --force` / `rm -rf .git` 硬阻断（`--yolo` 也无法绕过）；一切 `git push` 需人工确认。
-- **hooks**（`~/.codex/hooks.json`）：与 Claude 同构的事件门禁（PreToolUse/SubagentStop/Stop 等），复用同一批 Node 脚本（运行时内）。
-- 用户级 rules/hooks 全局生效，无需逐项目配置。
-
-确认、合同 seal、事件真源和独立验证见 Skill 的 `references/` 文档与运行时脚本。**沉默、模糊回答或模型推断都不构成确认。**
-
-## 目录
-
-- `.claude/skills/assembly-development/` — 编排 Skill（SKILL.md + references）
-- `.claude-plugin/plugin.json` — 插件清单（skills 指向 `./.claude/skills`，同一份 skill 双发现）
-- `scripts/` — 状态/合同/DAG/Gate/风险/快照/远程/dashboard 脚本（Node ESM，fail-closed）
-- `dashboard/` — 只读旁路仪表盘（127.0.0.1 随机端口，仅 GET）
-- `docs/` — 架构、runbook、依赖清单、ADR
-- `contracts/` — 任务合同（Markdown + JSON frontmatter，seal 后哈希锁定）
-- `run/` — events.ndjson（提交）、tasks/（冻结计划）、reports/（证据）；snapshots/projections/.runtime 可重建不入库
-
-## 注意事项
-
-- 流水线会话建议用 `--permission-mode default` 启动（hook 才是硬边界）。
-- Git 模式每任务一个 worktree；无 Git 时自动降级为串行模式，**绝不静默 `git init`**。
-- 仪表盘失败不影响编排，可随时重启。
+- 需求、接口、边界或交付物变化必须回到 document；不要在实现阶段偷偷扩大范围。
+- 测试必须先 RED；没有 RED 证据，不得把实现结果标记为完成。
+- 子会话只能写合同 `owned_paths` 和自己的 Handover；主会话负责合并和发布。
+- 不要把密钥、个人信息或未审查的第三方 Skill 放进合同、prompt、日志或提交。
+- 禁止 `git init`、`git reset --hard`、`git clean -fd/-fdx`、强制推送和删除 `.git`；普通推送也要由主会话取得用户确认。
+- Git worktree 只是隔离手段，不是权限边界；最终以路径检查、测试、哈希和主会话复核为准。
+- hooks 可能未加载、未匹配或被平台配置绕过；看到冲突时停止并向主会话报告，不要猜测继续。

@@ -23,10 +23,9 @@ function check(name, ok, detail = '') {
 // 1. 运行时完整性
 const HOOKS = ['hook-session-start', 'hook-user-prompt', 'hook-pretool', 'hook-tool-failure', 'hook-subagent-stop', 'hook-stop', 'hook-stop-failure'];
 for (const h of HOOKS) check(`运行时 hooks/${h}.mjs`, existsSync(path.join(HERE, 'hooks', `${h}.mjs`)));
-const SCRIPTS = ['identity', 'state', 'contract', 'tasks', 'gate', 'risks', 'snapshot', 'validate-report', 'dashboard-start', 'dashboard-stop', 'git-remote', 'install-cli'];
+const SCRIPTS = ['identity', 'state', 'contract', 'tasks', 'gate', 'risks', 'snapshot', 'validate-report', 'git-remote', 'install-cli'];
 for (const s of SCRIPTS) check(`运行时 scripts/${s}.mjs`, existsSync(path.join(HERE, `${s}.mjs`)));
 check('运行时 scripts/v2/skill-router.mjs', existsSync(path.join(HERE, 'v2', 'skill-router.mjs')));
-check('运行时 dashboard/server.mjs', existsSync(path.join(HERE, '..', 'dashboard', 'server.mjs')));
 
 // 2. 平台强制配置（用户级或项目级任一存在即通过）
 function hooksRegistered(settingsPath) {

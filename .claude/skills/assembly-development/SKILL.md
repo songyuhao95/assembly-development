@@ -75,8 +75,7 @@ Git worktree 是并行隔离，不是权限边界。没有预防能力时，界�
 
 1. `node scripts/self-test.mjs` — 校验 Node、hook 脚本、依赖 skill、状态目录。失败 → BLOCKED，向用户报告缺口。
 2. 依赖 skill 缺失时：向用户展示来源/commit/审查说明，经用户批准后再安装（见 references/third-party-skills.md）。**绝不未经批准安装或执行第三方脚本。**
-3. 若用户准备开始一个 run：执行 `node scripts/dashboard-start.mjs` 启动仪表盘，把 URL 告诉用户。
-4. **项目引导（首次在此项目使用，幂等）**：确保项目存在 `run/`（含 `tasks/`、`reports/`）、`contracts/`、`docs/specs/`、`docs/reviews/` 目录；确保 `.gitignore` 包含 `run/snapshots/`、`run/projections/`、`run/.runtime/`、`.worktrees/`、`*.tmp`（缺失则追加标记块）。这些是流水线在项目内的状态与证据位置。
+3. **项目引导（首次在此项目使用，幂等）**：确保项目存在 `run/`（含 `tasks/`、`reports/`）、`contracts/`、`docs/specs/`、`docs/reviews/` 目录；确保 `.gitignore` 包含 `run/snapshots/`、`run/projections/`、`run/.runtime/`、`.worktrees/`、`*.tmp`（缺失则追加标记块）。这些是流水线在项目内的状态与证据位置。进度通过 Outline、任务清单、Handover 和 `run/events.ndjson` 跟踪，不启动 Web 仪表盘。
 
 ## 内部兼容状态投影
 

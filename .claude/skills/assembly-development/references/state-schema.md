@@ -9,7 +9,7 @@ run/
 ├── reports/             # subagent 结构化报告与证据索引（提交）
 ├── snapshots/           # 发布 envelope（gitignore，可重建）
 ├── projections/         # state/approvals/risks/worktrees/evidence（gitignore，可重建）
-└── .runtime/            # active-run、dashboard.pid、current-snapshot 指针（gitignore）
+└── .runtime/            # active-run、current-snapshot 指针（gitignore）
 ```
 
 ## 事件（单行 JSON，schemaVersion: 1）

@@ -11,7 +11,6 @@
     ".codex/agents/asm-worker.toml",
     ".codex/agents/asm-verifier.toml",
     ".codex/rules/assembly-development.rules",
-    "dashboard/**",
     "scripts/**",
     "templates/**"
   ],
