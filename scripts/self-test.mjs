@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import { projectRoot } from './lib/project-root.mjs';
+import { inspectSkillRoutes } from './v2/skill-router.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = projectRoot();
@@ -24,6 +25,7 @@ const HOOKS = ['hook-session-start', 'hook-user-prompt', 'hook-pretool', 'hook-t
 for (const h of HOOKS) check(`运行时 hooks/${h}.mjs`, existsSync(path.join(HERE, 'hooks', `${h}.mjs`)));
 const SCRIPTS = ['identity', 'state', 'contract', 'tasks', 'gate', 'risks', 'snapshot', 'validate-report', 'dashboard-start', 'dashboard-stop', 'git-remote', 'install-cli'];
 for (const s of SCRIPTS) check(`运行时 scripts/${s}.mjs`, existsSync(path.join(HERE, `${s}.mjs`)));
+check('运行时 scripts/v2/skill-router.mjs', existsSync(path.join(HERE, 'v2', 'skill-router.mjs')));
 check('运行时 dashboard/server.mjs', existsSync(path.join(HERE, '..', 'dashboard', 'server.mjs')));
 
 // 2. 平台强制配置（用户级或项目级任一存在即通过）
@@ -64,19 +66,52 @@ try {
 check(`项目状态目录可写（${PROJECT}/run）`, writable);
 check('项目 contracts/ 目录', existsSync(path.join(PROJECT, 'contracts')), existsSync(path.join(PROJECT, 'contracts')) ? '' : '缺失：按 SKILL.md 项目引导创建');
 
-// 4. 依赖 skill（两个客户端目录任一存在即可）
+// 4. 当前客户端的核心 skill 闭包；不得用另一个客户端的安装代替
 const HOME_SKILLS_CLAUDE = path.join(os.homedir(), '.claude', 'skills');
 const HOME_SKILLS_CODEX = path.join(os.homedir(), '.agents', 'skills');
-const hasSkill = (name) =>
-  existsSync(path.join(HOME_SKILLS_CLAUDE, name)) ||
-  existsSync(path.join(HOME_SKILLS_CODEX, name)) ||
-  existsSync(path.join(PROJECT, '.claude', 'skills', name)) ||
-  existsSync(path.join(PROJECT, '.agents', 'skills', name));
-for (const s of ['grill-me', 'web-design-guidelines', 'design-taste-frontend', 'ui-ux-pro-max']) {
-  check(`依赖 skill: ${s}`, hasSkill(s));
+const clientSkillRoots = {
+  claude: [HOME_SKILLS_CLAUDE, path.join(PROJECT, '.claude', 'skills')],
+  codex: [HOME_SKILLS_CODEX, path.join(PROJECT, '.agents', 'skills')],
+};
+const clientArgIndex = process.argv.indexOf('--client');
+const explicitClient = clientArgIndex >= 0 ? process.argv[clientArgIndex + 1] : null;
+if (explicitClient && !Object.hasOwn(clientSkillRoots, explicitClient)) {
+  check('当前客户端参数', false, `不支持：${explicitClient}`);
 }
-check('代码整理类 skill（code-simplification/refactor/… 任一）',
-  ['code-simplification', 'refactor', 'code-review-excellence', 'tdd'].some(hasSkill));
+const detectedClient = explicitClient
+  || (process.env.CODEX_SESSION_ID || process.env.CODEX_THREAD_ID ? 'codex' : null)
+  || (process.env.CLAUDE_CODE || process.env.CLAUDE_SESSION_ID ? 'claude' : null);
+const clientsToInspect = detectedClient
+  ? [[detectedClient, clientSkillRoots[detectedClient]]]
+  : Object.entries(clientSkillRoots);
+const coreRoutes = ['writing-for-agents', 'tdd', 'codebase-design']
+  .map((skill) => ({ skill, trigger: 'self-test', required: true }));
+for (const [client, skillRoots] of clientsToInspect) {
+  let inspection;
+  try {
+    inspection = inspectSkillRoutes({
+      operation: 'skill.inspect',
+      payload: {
+        client,
+        skillRoots,
+        requestedRoutes: coreRoutes,
+        capabilities: { network: false, backgroundAgent: false, git: true },
+        allowInstall: false,
+        allowExecuteThirdParty: false,
+      },
+    });
+  } catch (error) {
+    inspection = { ok: false, missingFiles: [], cycles: [], errors: [error.message] };
+  }
+  const detail = inspection.ok
+    ? ''
+    : JSON.stringify({
+      missing: inspection.missingFiles.map((entry) => entry.skill),
+      cycles: inspection.cycles,
+      errors: inspection.errors,
+    });
+  check(`${client} 核心 skill 闭包`, inspection.ok, detail);
+}
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\nself-test: ${results.length - failed.length}/${results.length} 项通过`);

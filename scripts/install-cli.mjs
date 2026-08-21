@@ -17,20 +17,27 @@
 //
 // 环境变量（测试用）：ASM_HOME 覆盖主目录。
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HOME = process.env.ASM_HOME ? path.resolve(process.env.ASM_HOME) : os.homedir();
+const args = process.argv.slice(2);
+function option(name) {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : null;
+}
+const requestedHome = option('--home') || process.env.ASM_HOME;
+const HOME = requestedHome ? path.resolve(requestedHome) : os.homedir();
+const REPORT_PATH = option('--report');
 const RUNTIME = path.join(HOME, '.assembly-development');
 const RUNTIME_POSIX = RUNTIME.replaceAll('\\', '/'); // 跨 shell（bash/powershell）可用的绝对路径
 
-const args = process.argv.slice(2);
 const FLAGS = {
-  claude: args.includes('--claude'),
-  codex: args.includes('--codex'),
+  claude: args.includes('--all') || args.includes('--claude'),
+  codex: args.includes('--all') || args.includes('--codex'),
   force: args.includes('--force'),
   quiet: args.includes('--quiet'),
 };
@@ -41,6 +48,30 @@ if (!FLAGS.claude && !FLAGS.codex) {
 
 const log = (msg) => { if (!FLAGS.quiet) console.log(msg); };
 const results = [];
+const installed = [];
+const installedPaths = new Set();
+const merged = [];
+const skipped = [];
+const warnings = [];
+
+function sha256File(filePath) {
+  return `sha256:${createHash('sha256').update(readFileSync(filePath)).digest('hex')}`;
+}
+
+function trackInstalled(filePath) {
+  const absolute = path.resolve(filePath);
+  if (installedPaths.has(absolute)) return;
+  installedPaths.add(absolute);
+  installed.push({ path: absolute, sha256: sha256File(absolute) });
+}
+
+function trackSkipped(filePath, reason = 'exists') {
+  const absolute = path.resolve(filePath);
+  if (!skipped.some((entry) => entry.path === absolute && entry.reason === reason)) {
+    skipped.push({ path: absolute, reason });
+  }
+}
+
 function record(name, ok, detail = '') {
   results.push({ name, ok, detail });
   log(`${ok ? '✔' : '✘'} ${name}${detail ? ` — ${detail}` : ''}`);
@@ -57,6 +88,9 @@ function copyTree(src, dest) {
     else if (!existsSync(d) || FLAGS.force) {
       mkdirSync(path.dirname(d), { recursive: true });
       cpSync(s, d);
+      trackInstalled(d);
+    } else {
+      trackSkipped(d);
     }
   }
 }
@@ -69,6 +103,7 @@ function template(text) {
 function copySkillTemplated(src, dest, label) {
   if (existsSync(path.join(dest, 'SKILL.md')) && !FLAGS.force) {
     record(label, false, `已存在（${dest}）；如需更新用 --force`);
+    trackSkipped(path.join(dest, 'SKILL.md'));
     return;
   }
   mkdirSync(dest, { recursive: true });
@@ -78,8 +113,12 @@ function copySkillTemplated(src, dest, label) {
     if (statSync(s).isDirectory()) copySkillTemplated(s, d, label);
     else if (entry.endsWith('.md')) {
       writeFileSync(d, template(readFileSync(s, 'utf8')), 'utf8');
+      trackInstalled(d);
     } else if (!existsSync(d) || FLAGS.force) {
       cpSync(s, d);
+      trackInstalled(d);
+    } else {
+      trackSkipped(d);
     }
   }
 }
@@ -92,7 +131,7 @@ function readJson(p) {
   }
 }
 
-function mergeJson(targetPath, sourceObj) {
+function mergeJson(targetPath, sourceObj, kind = 'hooks') {
   const target = readJson(targetPath);
   for (const [key, value] of Object.entries(sourceObj)) {
     if (!(key in target)) {
@@ -118,6 +157,7 @@ function mergeJson(targetPath, sourceObj) {
   }
   mkdirSync(path.dirname(targetPath), { recursive: true });
   writeFileSync(targetPath, JSON.stringify(target, null, 2) + '\n', 'utf8');
+  merged.push({ path: path.resolve(targetPath), kind });
 }
 
 function appendBlock(targetPath, marker, block) {
@@ -136,6 +176,7 @@ function appendBlock(targetPath, marker, block) {
 function installRuntime() {
   copyTree(path.join(PKG_ROOT, 'scripts'), path.join(RUNTIME, 'scripts'));
   copyTree(path.join(PKG_ROOT, 'dashboard'), path.join(RUNTIME, 'dashboard'));
+  copyTree(path.join(PKG_ROOT, 'templates'), path.join(RUNTIME, 'templates'));
   // 语法自检：运行时脚本必须可解析
   let bad = 0;
   for (const dir of ['scripts', 'scripts/hooks', 'scripts/lib']) {
@@ -206,7 +247,7 @@ function installClaude() {
         'Bash(rm -rf .git*)', 'Bash(rm -rf:*)',
       ],
     },
-  });
+  }, 'hooks');
   record('Claude 用户级 hooks/permissions', true, settings);
 }
 
@@ -216,6 +257,30 @@ function codexHookCommand(script, windows) {
   return windows
     ? `powershell -NoProfile -Command "& node '${RUNTIME_POSIX}/scripts/hooks/${script}'"`
     : `node "${RUNTIME_POSIX}/scripts/hooks/${script}"`;
+}
+
+function installCodexProfiles() {
+  const sourceDir = path.join(PKG_ROOT, '.codex', 'agents');
+  const targetDir = path.join(HOME, '.codex', 'agents');
+  const profiles = ['asm-worker.toml', 'asm-verifier.toml'];
+  if (!existsSync(targetDir)) {
+    for (const profile of profiles) trackSkipped(path.join(targetDir, profile), 'unsupported');
+    return;
+  }
+  for (const profile of profiles) {
+    const source = path.join(sourceDir, profile);
+    const target = path.join(targetDir, profile);
+    if (!existsSync(source)) {
+      warnings.push(`missing-profile-source:${profile}`);
+      continue;
+    }
+    if (existsSync(target) && !FLAGS.force) {
+      trackSkipped(target);
+      continue;
+    }
+    cpSync(source, target);
+    trackInstalled(target);
+  }
 }
 
 function installCodex() {
@@ -228,9 +293,11 @@ function installCodex() {
   const rulesSrc = path.join(PKG_ROOT, '.codex', 'rules', 'assembly-development.rules');
   if (existsSync(rulesDest) && !FLAGS.force) {
     record('Codex 用户级 rules', false, `已存在（${rulesDest}）；如需更新用 --force`);
+    trackSkipped(rulesDest);
   } else {
     mkdirSync(path.dirname(rulesDest), { recursive: true });
     cpSync(rulesSrc, rulesDest);
+    trackInstalled(rulesDest);
     record('Codex 用户级 rules', true, rulesDest);
   }
 
@@ -244,20 +311,26 @@ function installCodex() {
       Stop: [{ hooks: [{ type: 'command', command: codexHookCommand('hook-stop.mjs'), commandWindows: codexHookCommand('hook-stop.mjs', true), timeout: 15 }] }],
     },
   };
-  mergeJson(path.join(HOME, '.codex', 'hooks.json'), hooks);
+  mergeJson(path.join(HOME, '.codex', 'hooks.json'), hooks, 'hooks');
   record('Codex 用户级 hooks', true, path.join(HOME, '.codex', 'hooks.json'));
 
   const agentBlock = `
 ## assembly-development 流水线（由安装器维护）
 
 本机已安装 assembly-development 流水线。任何项目中开始开发前：
-1. 调用 skill \`assembly-development\` 并按其协议执行（阶段机、任务合同、Gate G0-G5）。
+1. 调用 skill \`assembly-development\` 并按四阶段执行：document → test/RED → code/minimal GREEN → verify/pass。
 2. 运行自检：\`node "${RUNTIME_POSIX}/scripts/self-test.mjs"\`；失败先修复。
 3. 脚本统一位于 \`${RUNTIME_POSIX}/scripts\`（状态/合同/门禁/DAG/快照）；状态落在当前项目 run/ 目录。
-4. 硬规则由 \`~/.codex/rules/assembly-development.rules\` 与 hooks 强制：禁止 git init / reset --hard / clean -fd / push --force / rm -rf .git；Gate 只认用户明确批准；冲突停止上报。
+4. 硬规则由 \`~/.codex/rules/assembly-development.rules\` 与 hooks 提供条件性保护：禁止 git init / reset --hard / clean -fd / push --force / rm -rf .git；发布由项目主会话在用户确认后合并和推送；冲突停止上报。
 `;
-  appendBlock(path.join(HOME, '.codex', 'AGENTS.md'), '## assembly-development 流水线（由安装器维护）', agentBlock);
+  const agentsPath = path.join(HOME, '.codex', 'AGENTS.md');
+  if (appendBlock(agentsPath, '## assembly-development 流水线（由安装器维护）', agentBlock)) {
+    merged.push({ path: path.resolve(agentsPath), kind: 'agents' });
+  } else {
+    trackSkipped(agentsPath);
+  }
   record('Codex 用户级 AGENTS.md 块', true);
+  installCodexProfiles();
 }
 
 // ---------- 主流程 ----------
@@ -265,7 +338,7 @@ function installCodex() {
 log(`assembly-development 安装器 v${JSON.parse(readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version}`);
 log(`运行时: ${RUNTIME_POSIX}`);
 
-installRuntime();
+const runtimeOk = installRuntime();
 if (FLAGS.claude) installClaude();
 if (FLAGS.codex) installCodex();
 
@@ -276,4 +349,19 @@ log('\n用法（任何项目内）：');
 log('  · Claude Code 或 Codex 会话中调用 assembly-development skill 即获得完整功能');
 log('  · 首次在 Codex 使用：接受项目信任 + /hooks 审查批准一次');
 log('  · 自检：node "' + RUNTIME_POSIX + '/scripts/self-test.mjs"');
-process.exit(0);
+
+if (REPORT_PATH) {
+  const reportPath = path.resolve(REPORT_PATH);
+  mkdirSync(path.dirname(reportPath), { recursive: true });
+  writeFileSync(reportPath, `${JSON.stringify({
+    schemaVersion: 1,
+    ok: runtimeOk,
+    targetHome: HOME,
+    clients: [FLAGS.codex ? 'codex' : null, FLAGS.claude ? 'claude' : null].filter(Boolean),
+    installed,
+    merged,
+    skipped,
+    warnings,
+  }, null, 2)}\n`, 'utf8');
+}
+process.exit(runtimeOk ? 0 : 1);

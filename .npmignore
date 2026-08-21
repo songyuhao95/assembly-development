@@ -1,4 +1,4 @@
-# npx 安装包只保留安装器需要的内容
+# package.json 的 files 是正向白名单；此处为纵深排除
 run/
 tests/
 docs/
@@ -6,6 +6,11 @@ contracts/
 releases/
 third-party/
 .git/
+.github/
+.worktrees/
+.claude/settings.local.*
+.codex/settings.local.*
+**/settings.local.*
 .gitattributes
 .gitignore
 *.bak

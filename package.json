@@ -3,6 +3,18 @@
   "version": "1.0.0",
   "description": "assembly-development 流水线的一键安装器：Claude Code 与 Codex 双端 skill/规则/hooks 安装（npx github:songyuhao95/assembly-development）",
   "license": "MIT",
+  "files": [
+    "README.md",
+    "LICENSE",
+    ".agents/skills/assembly-development/**",
+    ".claude/skills/assembly-development/**",
+    ".codex/agents/asm-worker.toml",
+    ".codex/agents/asm-verifier.toml",
+    ".codex/rules/assembly-development.rules",
+    "dashboard/**",
+    "scripts/**",
+    "templates/**"
+  ],
   "bin": {
     "assembly-development": "scripts/install-cli.mjs"
   },

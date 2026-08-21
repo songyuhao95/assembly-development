@@ -4,25 +4,20 @@
 
 主会话是唯一控制平面，负责用户交互、人工审批和阶段推进；每个普通 `general-purpose` subagent 只接受一份经过批准、权限最小化、可验证的**任务合同**，执行后交回证据。
 
-## 流程
+## 四阶段流程
 
 ```
-clarify（澄清问题，主会话代问）
-  → G0/G1 人工批准
-  → plan（技术方案 + 任务 DAG，冻结为 run/tasks/<RUN_ID>.json）
-  → G2 人工批准
-  → implement（每个垂直任务一个 worktree，可并行）
-  → integrate（独立 integration worktree，按 DAG 串行集成）
-  → verify（风险触发的独立验证 + 授权范围内安全测试）
-  → G3/G4/G5 人工批准 → release（快照 + 交付）
+document → test/RED → code/minimal GREEN → verify/pass
 ```
+
+主会话先把需求固化为方案和任务 DAG，再由测试 owner 冻结 RED；实现会话只做当前 tracer bullet 的最小代码，最后由主会话合并验证。需求、方案、发布和最终交付分别取得用户明确确认；实现不可行或接口改变时回到 document 阶段。
 
 ## 四层控制
 
 1. **Skill 指令**：流程、合同、门禁的顺序与红线（`.claude/skills/assembly-development/`）。
 2. **持久状态**：`run/events.ndjson` 是运行事实真源（append-only），投影全部由事件重建（`scripts/state.mjs`）。
 3. **任务 DAG**：G2 冻结的依赖图，只启动依赖已完成的任务（`scripts/tasks.mjs`）。
-4. **hooks/permissions**：`.claude/settings.json` 注册；hook 是硬边界（本机默认 bypassPermissions 时尤其如此）。
+4. **hooks/permissions**：`.claude/settings.json` 注册；只有平台实际加载并匹配时才提供条件性预防/检测控制，可信 runner/CI 负责准入拒绝。
 
 ## 安装
 
@@ -36,6 +31,9 @@ npx github:songyuhao95/assembly-development
 # 只装一端
 npx github:songyuhao95/assembly-development --claude
 npx github:songyuhao95/assembly-development --codex
+
+# 显式选择客户端、隔离安装目录并输出机器报告（测试/自动化）
+node scripts/install-cli.mjs --all --home <temp-home> --report <result.json>
 
 # 强制更新已装文件（默认跳过已存在的文件，保护你的修改）
 npx github:songyuhao95/assembly-development --force
@@ -54,9 +52,9 @@ claude plugin marketplace add songyuhao95/assembly-development
 claude plugin install assembly-development@songyuhao95/assembly-development
 ```
 
-## 跨客户端混用
+## 跨客户端协作
 
-Claude 写文档、Codex 接手写代码，或反过来——直接切换，无需迁移：状态、合同、事件都在项目内共享；任一端的 Gate 批准对另一端有效；两端的 hooks/rules 各自硬阻断危险命令。继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影即可。
+Claude 写文档、Codex 接手写代码，或反过来——直接切换，无需迁移：状态、合同、事件都在项目内共享；继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影即可。两端 Skill 的 references 保持字节一致，客户端入口可以有适配差异。
 
 ## 快速开始
 
@@ -89,7 +87,7 @@ Codex 侧的强制边界与 Claude 同强度：
 - **hooks**（`~/.codex/hooks.json`）：与 Claude 同构的事件门禁（PreToolUse/SubagentStop/Stop 等），复用同一批 Node 脚本（运行时内）。
 - 用户级 rules/hooks 全局生效，无需逐项目配置。
 
-人工门禁 G0–G5 的定义见 `docs/runbook.md`。**沉默、模糊回答或模型推断都不构成批准。**
+确认、合同 seal、事件真源和独立验证见 Skill 的 `references/` 文档与运行时脚本。**沉默、模糊回答或模型推断都不构成确认。**
 
 ## 目录
 

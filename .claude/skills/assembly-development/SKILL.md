@@ -1,6 +1,6 @@
 ---
 name: assembly-development
-description: 流水线式多 agent 开发编排。当用户想用主会话协调多个 subagent 按阶段完成软件交付（需求澄清、方案、开发、集成、验证、发布）时启用。核心协议：任务合同驱动；人工 Gate G0-G5；事件状态真源；Git worktree 并行。
+description: 用四阶段 tracer-bullet 流程编排多 agent 软件交付。需要创建或修改项目交付物，并要求文档冻结、测试先行、目录所有权、跨会话交接或独立验证时启用；纯咨询、只读审阅和状态报告不启用。
 ---
 
 # assembly-development — 流水线开发编排
@@ -9,6 +9,68 @@ description: 流水线式多 agent 开发编排。当用户想用主会话协调
 
 每次派发 subagent 只注入一份任务合同（见 references/task-contract.md）。
 
+## 用户可见流程
+
+唯一用户可见流程是：
+
+```text
+document → test/RED → code/minimal GREEN → verify/pass
+```
+
+1. **document**：把模糊需求收敛为确定需求、边界清楚的方案和可测试任务；依次取得用户明确的“需求确认”和“方案确认”。
+2. **test/RED**：测试 owner 为当前 active tracer bullet 写一个行为测试，证明它因目标行为缺失而失败，并冻结测试 revision/hash。
+3. **code/minimal GREEN**：implementation owner 只写合同的 `owned_paths`，用最小实现使当前测试转绿；需求、接口、边界或交付物变化时回到 document，测试表达错误时回到 test/RED。
+4. **verify/pass**：绑定代码与测试 hash 保存 GREEN 证据，完成任务、模块、项目逐级测试和必要的独立验证；推送前取得“发布确认”，发布观察后取得“最终验收”。
+
+任何确认都只接受用户对当前 revision/hash 的明确决定。内部脚本可保留旧版事件字段以兼容历史，但这些字段不是用户步骤。
+
+## 三级所有权与交接
+
+启动时给项目主会话分配唯一 session ID。所有受控文件都按“一个阶段、一个 owner”处理：
+
+- **项目层**：项目主会话独占维护根 `Outline_Notes.md`，只保留最新目标、约定、架构、清单、进度与验证结果。项目较大且能按独立业务能力形成无写路径重叠的 DAG 时，完成 Outline 后询问用户是否拆模块。
+- **模块层**：项目主会话签发 `Mxx_Module_Outline_Notes.md`，写明模块工作目录、交付物、接口、依赖、验收命令和禁止路径。模块会话绝不能修改这份模块合同，只能在合同目录中维护自己的 `Outline_Notes.md`、任务与模块 Handover；模块不能再创建子模块。
+- **任务层**：一个任务是一个可测试垂直单元。test owner 是直接上级主会话，拥有任务规范和可信测试；implementation owner 是合同中的唯一任务会话，只拥有实现 `owned_paths` 和自己的 Handover，不拥有任务规范、测试、上级 Outline 或模块合同。
+
+任务会话只写 `<TASK_ID>_<SESSION_ID>_Handover_Record.md`；新会话读取旧记录并创建自己的 `Handover_Record.md`，不覆盖旧会话文件。模块 Handover 由当前模块 owner 单写；项目不创建全局 Handover。
+
+消费项目的根 `app/` 是用户已提供或克隆的独立 Git 产品仓库。模块与任务会话只按模块合同/任务清单向受控工作区或 `delivery/app/` 交付结果；项目主会话或专用 integrator 读取交付物、测试和 Handover 后负责合并根 `app/`。本 Skill 不要求下级会话实现独立的 `delivery stage/promote` 编排；控制平面的 Outline、合同、任务、Handover 与机器证据始终留在 `app/` 外。
+
+所有权转移必须递增 `ownership_epoch` 并记录新 owner；旧 owner 产物不能再进入 promotion。若需要越过 `owned_paths`、改变模块合同/公共接口或写共享文件，停止并回到 document owner。
+
+## 条件 Skill 路由
+
+主会话和模块主会话只在触发条件命中时读取对应 Skill；任务会话只使用合同列出的必要 Skill，不能嵌套新的编排器。调用 `skill-router` 时传入当前客户端、明确声明的 `skillRoots`、requested routes 与运行能力；递归闭包只读取这些根内 `SKILL.md` frontmatter 的 `depends_on`，不扫描根外路径。
+
+| 环节 | 分类 | Skill | 触发条件 |
+|---|---|---|---|
+| bootstrap | `required` | `assembly-development` | 开发/修改请求产生项目交付物；先自检、分配 session ID、恢复或建立合同 |
+| document | `required` | `writing-for-agents` | 创建或修改 Skill、AGENTS/CLAUDE、模块/任务提示词 |
+| document | `conditional` | `grilling` | 目标、非目标、角色、验收行为或重要取舍仍模糊；问题由主会话向用户提出 |
+| document | `conditional` | `domain-modeling` | 术语多义，或实体、状态、接口命名边界不清 |
+| document | `conditional` | `codebase-design` | 模块、公共接口、深模块或测试 seam 不清 |
+| document | `conditional` | `research` | 方案依赖不确定外部事实，且合同允许所需网络和来源 |
+| document | `conditional` | `prototype` | 仅靠讨论不能确定逻辑、状态或 UI；原型隔离且不直接进入交付 |
+| test/code | `required` | `tdd` | 方案已确认，准备为 active bullet 证明 RED；贯穿最小 GREEN 循环 |
+| code | `conditional` | `diagnosing-bugs` | 可稳定复现但常规最小修复仍不能定位，或出现性能回归 |
+| code | `conditional` | `code-simplification` / `refactor` | 当前测试已 GREEN 且存在真实重复或复杂度；RED 时不触发 |
+| verify | `conditional` | `code-review` | 有固定基线、非空 diff 且所需测试已 GREEN |
+| handover | `required` | assembly Handover 协议 | 会话将停止、换 owner、完成 bullet 或遇到阻塞 |
+| 任意 | `user-only` | `grill-me`、`grill-with-docs`、`setup-matt-pocock-skills`、第三方 `handoff` | 只有用户显式点名才提示；模型不自动调用 |
+
+路由先验证当前客户端文件与 `depends_on` 闭包，再区分静态文件和 network/background-agent/git/write 等运行能力。缺失的 required 项或依赖环 fail closed；conditional 能力不可用时记录 unknown 并返回上级决定。路由器**不自动安装** Skill，**不执行第三方** Skill 或脚本；需要安装、联网或扩大权限时必须另行取得用户授权。
+
+## 控制强度：诚实陈述
+
+`SKILL.md 不能单独提供文件系统硬阻断`。每项保证必须按真实机制表述：
+
+- **软纪律**：本 Skill、`AGENTS.md`、合同正文和提示词告诉 Agent 应做什么；仅在内容被加载且 Agent 遵循时有效。
+- **预防性硬阻断**：受信任平台实际加载的 OS sandbox/ACL、精确 writable roots、execpolicy 或匹配 hook 在动作发生前拒绝；能力不可用、项目未 trust、规则未加载或工具/matcher 未命中时不作保证。
+- **准入硬阻断**：可信 runner、合同/hash/path policy、证据、manifest、promotion 和 CI 拒绝接受、合并或发布违规产物；它们不能撤销已经发生的本地写入。
+- **检测性控制**：diff、报告和 CI 能发现漂移，但不能声称曾阻止写入。
+
+Git worktree 是并行隔离，不是权限边界。没有预防能力时，界面与 Handover 必须明确显示“准入保护”，由项目主会话只接收可信脚本验证过的产物；不得把 Markdown、模型自报或普通测试通过夸大为不可绕过的写保护。
+
 ## 启动自检（每次会话开始必做）
 
 1. `node scripts/self-test.mjs` — 校验 Node、hook 脚本、依赖 skill、状态目录。失败 → BLOCKED，向用户报告缺口。
@@ -16,7 +78,7 @@ description: 流水线式多 agent 开发编排。当用户想用主会话协调
 3. 若用户准备开始一个 run：执行 `node scripts/dashboard-start.mjs` 启动仪表盘，把 URL 告诉用户。
 4. **项目引导（首次在此项目使用，幂等）**：确保项目存在 `run/`（含 `tasks/`、`reports/`）、`contracts/`、`docs/specs/`、`docs/reviews/` 目录；确保 `.gitignore` 包含 `run/snapshots/`、`run/projections/`、`run/.runtime/`、`.worktrees/`、`*.tmp`（缺失则追加标记块）。这些是流水线在项目内的状态与证据位置。
 
-## 阶段机（详见 references/phases.md）
+## 内部兼容状态投影
 
 ```
 NEW → CLARIFYING → G0/G1 → PLANNING → G2 → IMPLEMENTING
@@ -25,9 +87,11 @@ NEW → CLARIFYING → G0/G1 → PLANNING → G2 → IMPLEMENTING
 
 异常态：WAITING_FOR_USER / BLOCKED / REWORK_REQUIRED / FAILED_RETRYABLE / RECOVERY_REQUIRED / ABORTED / DEGRADED_SERIAL_NO_GIT。
 
-**硬规则**：
-- 未完成澄清不得进入方案；方案未经用户批准（G2）不得启动任何实现。
-- 进入下一阶段前调用 `node scripts/gate.mjs check --gate <G>` 验证。
+这些名称只用于兼容既有事件、脚本和历史投影。执行决策始终映射回上面的四阶段，不向用户要求记忆或批准状态编号。
+
+**内部准入规则**：
+- 需求确认前不冻结方案；方案确认前不得证明 RED 或启动实现。
+- 兼容脚本需要旧事件字段时，只在普通确认已绑定当前 revision/hash 后记录和检查，不把字段名当作新的用户步骤。
 - 每次 TaskCreate 前必须 `node scripts/contract.mjs seal <contractId>` 通过。
 
 ## 合同派发协议
@@ -55,15 +119,13 @@ contract_sha256=sha256:<hex>
 
 subagent 只能执行合同范围；发现矛盾必须停止上报，由你向用户请求决策（ADR 或新版本合同）。
 
-## 阶段脚本序列
+## 四阶段内部操作
 
-- **clarify**：派发 subagent 生成澄清问题（结构化列表）→ 你在主会话运行 `/grill-me`（或 AskUserQuestion）代问 → 记录答案 → 输出产品简档 → G0/G1。
-- **plan**：派发 subagent 产出需求矩阵/技术方案/风险登记/任务 DAG → 你合并校验（`node scripts/tasks.mjs freeze <runId> <plan>` 检测环与依赖）→ 向用户请求 G2 批准。
-- **implement**：`node scripts/tasks.mjs ready <runId>` 只派发依赖已完成的垂直任务；每个任务一个 worktree（Git 模式）或串行降级（无 Git，见 references/worktree-policy.md）。并行任务同时派发。
-- **integrate**：独立 integration worktree 按 DAG 顺序集成；冲突无法机械判断 → BLOCKED 请求用户决策。
-- **verify**：风险触发独立验证（新上下文、只读、不得改实现后自批；见 references/quality.md）。中高风险任务不得跳过。
-- **release**：`node scripts/snapshot.mjs publish <runId>` 生成 envelope → 用户 G4 批准 → `node scripts/git-remote.mjs push` → 观察 → G5。
-- **恢复**：任何中断后先 `node scripts/state.mjs rebuild <runId>` 重建投影 + 核对 worktree/commit/报告，再继续。
+- **document**：主会话提出澄清问题，维护根 Outline；生成需求、方案、风险和按业务能力纵切的任务 DAG。需求确认与方案确认后，`node scripts/tasks.mjs freeze <runId> <plan>` 冻结当前 revision；大型且适合的项目再询问模块模式。
+- **test/RED**：test owner 一次只增加当前 bullet 的行为测试；可信 runner 证明旧测试 GREEN、新行为因目标缺失而 RED，并冻结任务/test revision/hash。没有有效 RED 证据不得派发 code。
+- **code/minimal GREEN**：`node scripts/tasks.mjs ready <runId>` 只返回依赖完成的任务；派发任务 subagent 后只接受合同范围内的最小实现和唯一 Handover。当前 bullet GREEN 后由上级复核并决定是否激活下一个。
+- **verify/pass**：按任务、模块、项目逐级校验机器证据与测试，由项目主会话或专用 integrator 按交付清单合并；中高风险或发布前使用新上下文独立验证。`node scripts/snapshot.mjs publish <runId>` 只能在发布确认后进入推送，观察完成后请求最终验收。
+- **恢复**：任何中断后先 `node scripts/state.mjs rebuild <runId>`，核对合同 hash、owner epoch、Handover、证据、工作区与 app 基线，再从对应四阶段继续。
 
 ## 红线（hook 强制，此处重申）
 
@@ -77,7 +139,7 @@ subagent 只能执行合同范围；发现矛盾必须停止上报，由你向�
 
 状态与合同都落在**项目**内（`run/`、`contracts/`、`docs/`），两个客户端共享同一份事实：
 
-- 切换客户端无需迁移任何东西；继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影，并用 `node scripts/gate.mjs check --gate <G>` 核对当前门禁。
+- 切换客户端无需迁移任何东西；继续前先 `node scripts/state.mjs rebuild <runId>` 重建投影，并核对当前合同、四阶段、确认 revision 与 RED/GREEN 证据。
 - 任一客户端记录的 Gate 批准、任务事件对另一端同样有效（事件都在项目 `run/events.ndjson`）。
 - 任何一端的会话都必须遵守同一流程：合同未 seal 不派发、Gate 未批准不推进、报告无证据不通过、危险命令被各自 hooks/rules 硬阻断。
 
