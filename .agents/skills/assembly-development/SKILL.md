@@ -128,6 +128,10 @@ contract_sha256=sha256:<hex>
 - **verify/pass**：按任务、模块、项目逐级校验机器证据与测试，由项目主会话或专用 integrator 按交付清单合并；中高风险或发布前派发 `asm-verifier` 独立验证。`node scripts/snapshot.mjs publish <runId>` 只能在发布确认后进入推送，观察完成后请求最终验收。
 - **恢复**：任何中断后先读取本层 `*_Outline_Notes.md`，执行其中的 `next_action`；再按 `references/session-resume.md` 的最小读取顺序核对合同 hash、owner epoch、Handover、证据、工作区与 app 基线，最后从对应四阶段继续。
 
+## 问题反馈与故障 Rework
+
+当主会话合并/验收失败，或用户测试、使用反馈错误时，触发 `INCIDENT_REWORK_LOOP`，完整步骤见 `references/incident-rework.md`：主会话先记录 incident 并复现，用失败测试、路径和 `owned_paths` 定位负责模块/任务；实现缺陷回 `code/minimal GREEN`，测试错误回 `test/RED`，需求/接口/边界变化回 `document`。受影响任务立即将 `test=true` 改为 `false`，旧 GREEN/evidence 标记 stale。旧合同不覆盖，主会话签发并 seal 新 revision，再用 rework 提示词让模块会话或任务 agent 重新读取新合同、本层 Outline 和必要证据。完成后必须重新合并、任务/模块/项目回归、manifest/hash 验证，并重新取得发布确认。
+
 ## 红线（.codex/rules + hooks 强制，此处重申）
 
 - 禁止 `git init`、`git reset --hard`、`git clean -fd/-fdx`、`git push --force`/`-f`、`rm -rf .git`（execpolicy 硬阻断；`--yolo` 也不能绕过）。
@@ -155,4 +159,5 @@ contract_sha256=sha256:<hex>
 - worktree-policy.md — Git worktree 与无 Git 降级
 - dfm-cost.md — DFM/成本适用性
 - security.md — 安全与秘密管理
+- incident-rework.md — 问题反馈、归属排查、合同 revision 和定向 rework 提示词
 - third-party-skills.md — 外部 skill 依赖与安装
