@@ -29,10 +29,10 @@ document → test/RED → code/minimal GREEN → verify/pass
 启动时给项目主会话分配唯一 session ID。所有受控文件都按“一个阶段、一个 owner”处理：
 
 - **项目层**：项目主会话独占维护根 `Outline_Notes.md`，只保留最新目标、约定、架构、清单、进度与验证结果。项目较大且能按独立业务能力形成无写路径重叠的 DAG 时，完成 Outline 后询问用户是否拆模块。
-- **模块层**：项目主会话签发 `Mxx_Module_Outline_Notes.md`，写明模块工作目录、交付物、接口、依赖、验收命令和禁止路径。模块会话绝不能修改这份模块合同，只能在合同目录中维护自己的 `Outline_Notes.md`、任务与模块 Handover；模块不能再创建子模块。
-- **任务层**：一个任务是一个可测试垂直单元。test owner 是直接上级主会话，拥有任务规范和可信测试；implementation owner 是合同中的唯一任务会话，只拥有实现 `owned_paths` 和自己的 Handover，不拥有任务规范、测试、上级 Outline 或模块合同。
+- **模块层**：项目主会话签发只读的 `Mxx_Module_Outline_Notes.md`，写明模块工作目录、交付物、接口、依赖、验收命令和禁止路径。模块会话把当前进度写入同目录的 `Mxx_Outline_Notes.md`，不能修改模块合同；模块不能再创建子模块。
+- **任务层**：一个任务是一个可测试垂直单元。test owner 是直接上级主会话，拥有任务规范和可信测试；implementation owner 是合同中的唯一任务会话，只拥有实现 `owned_paths` 和自己的 Handover，不拥有任务规范、测试、上级 Outline 或模块合同。任务会话把恢复摘要写入 `<TASK_ID>_Outline_Notes.md`，任务清单本身保持只读。
 
-任务会话只写 `<TASK_ID>_<SESSION_ID>_Handover_Record.md`；新会话读取旧记录并创建自己的 `Handover_Record.md`，不覆盖旧会话文件。模块 Handover 由当前模块 owner 单写；项目不创建全局 Handover。
+任务会话只写自己的 `<TASK_ID>_Outline_Notes.md` 和 `<TASK_ID>_<SESSION_ID>_Handover_Record.md`；新会话先读取本层 Outline，再读取 Handover 和它引用的必要证据，不覆盖旧会话文件。模块 Handover 由当前模块 owner 单写；项目不创建全局 Handover。进度文件只保留最新的完成项、待完成项、下一步和证据摘要，详细历史放在 Handover/event log。
 
 消费项目的根 `app/` 是用户已提供或克隆的独立 Git 产品仓库。模块与任务会话只按模块合同/任务清单向受控工作区或 `delivery/app/` 交付结果；项目主会话或专用 integrator 读取交付物、测试和 Handover 后负责合并根 `app/`。本 Skill 不要求下级会话实现独立的 `delivery stage/promote` 编排；控制平面的 Outline、合同、任务、Handover 与机器证据始终留在 `app/` 外。
 
@@ -76,6 +76,7 @@ Git worktree 是并行隔离，不是权限边界。没有预防能力时，界�
 1. `node scripts/self-test.mjs` — 校验 Node、hook 脚本、依赖 skill、状态目录。失败 → BLOCKED，向用户报告缺口。
 2. 依赖 skill 缺失时：向用户展示来源/commit/审查说明，经用户批准后再安装（见 references/third-party-skills.md）。**绝不未经批准安装或执行第三方脚本。**
 3. **项目引导（首次在此项目使用，幂等）**：确保项目存在 `run/`（含 `tasks/`、`reports/`）、`contracts/`、`docs/specs/`、`docs/reviews/` 目录；确保 `.gitignore` 包含 `run/snapshots/`、`run/projections/`、`run/.runtime/`、`.worktrees/`、`*.tmp`（缺失则追加标记块）。这些是流水线在项目内的状态与证据位置。进度通过 Outline、任务清单、Handover 和 `run/events.ndjson` 跟踪，不启动 Web 仪表盘。
+4. **上下文恢复**：先读取当前身份对应的进度文件：项目主会话读 `Outline_Notes.md`，模块会话读 `Mxx_Outline_Notes.md`，任务会话读 `<TASK_ID>_Outline_Notes.md`。只按文件中的 `contract_sha256`、`task_revision`、`test_revision`、`evidence_path` 和 `next_action` 读取必要的上级合同、当前测试和证据；不要先扫描整个项目。进度文件缺失、过期或哈希不匹配时暂停并报告。
 
 ## 内部兼容状态投影
 
@@ -124,7 +125,7 @@ subagent 只能执行合同范围；发现矛盾必须停止上报，由你向�
 - **test/RED**：test owner 一次只增加当前 bullet 的行为测试；可信 runner 证明旧测试 GREEN、新行为因目标缺失而 RED，并冻结任务/test revision/hash。没有有效 RED 证据不得派发 code。
 - **code/minimal GREEN**：`node scripts/tasks.mjs ready <runId>` 只返回依赖完成的任务；派发任务 subagent 后只接受合同范围内的最小实现和唯一 Handover。当前 bullet GREEN 后由上级复核并决定是否激活下一个。
 - **verify/pass**：按任务、模块、项目逐级校验机器证据与测试，由项目主会话或专用 integrator 按交付清单合并；中高风险或发布前使用新上下文独立验证。`node scripts/snapshot.mjs publish <runId>` 只能在发布确认后进入推送，观察完成后请求最终验收。
-- **恢复**：任何中断后先 `node scripts/state.mjs rebuild <runId>`，核对合同 hash、owner epoch、Handover、证据、工作区与 app 基线，再从对应四阶段继续。
+- **恢复**：任何中断后先读取本层 `*_Outline_Notes.md`，执行其中的 `next_action`；再按 `references/session-resume.md` 的最小读取顺序核对合同 hash、owner epoch、Handover、证据、工作区与 app 基线，最后从对应四阶段继续。
 
 ## 红线（hook 强制，此处重申）
 

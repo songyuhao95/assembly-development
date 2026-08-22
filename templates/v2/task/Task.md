@@ -4,6 +4,7 @@ task_id: {{TASK_ID}}
 revision: {{TASK_REVISION}}
 owner_session_id: {{OWNER_SESSION_ID}}
 depends_on: {{DEPENDS_ON}}
+progress_notes: {{TASK_ID}}_Outline_Notes.md
 
 ## 目标
 

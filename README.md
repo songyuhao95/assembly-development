@@ -68,7 +68,7 @@ node "~/.assembly-development/scripts/self-test.mjs"
 2. 在主会话中调用 `assembly-development` Skill。
 3. 主会话分配唯一会话 ID，读取或创建项目根 `Outline_Notes.md`。
 4. 需求确认、方案确认后，主会话创建模块合同或任务清单，再按合同派发实现会话。
-5. 每个任务会话先读取任务清单，按 RED → 最小 GREEN 循环开发，并维护自己的 Handover。
+5. 每个任务会话先读取自己的 `<任务编号>_Outline_Notes.md`，按其中的 `next_action` 开始；再按 RED → 最小 GREEN 循环开发，并维护自己的 Handover。
 6. 主会话只接收测试通过且路径、哈希、交付物都符合约定的结果，最后合并 `app/` 并提交 Git。
 
 ## 跨客户端混用
@@ -77,9 +77,9 @@ Claude Code 和 Codex 共享同一套项目事实：任务清单、合同、`run
 
 切换客户端时：
 
-1. 先读取当前任务的 Handover 和最近的机器证据。
-2. 根据 `run/events.ndjson` 重建状态，确认当前阶段和 owner。
-3. 继续当前 bullet；不要跳过 RED，也不要覆盖旧会话的 Handover。
+1. 先读取本层进度文件：项目主会话读 `Outline_Notes.md`，模块会话读 `M01_Outline_Notes.md`，任务会话读 `<任务编号>_Outline_Notes.md`。
+2. 只按进度文件中的合同、任务、测试和证据哈希读取必要上下文；不要扫描整个项目。
+3. 执行 `next_action`，再读取 Handover 和最新机器证据确认状态；不要跳过 RED，也不要覆盖旧会话的 Handover。
 
 ## 跨会话和模块使用
 
@@ -88,12 +88,12 @@ Claude Code 和 Codex 共享同一套项目事实：任务清单、合同、`run
 模块模式的边界：
 
 - 主会话创建 `M01_Module_Outline_Notes.md`，写明模块目标、工作目录、交付标准和禁止路径。
-- 模块会话只能修改模块工作目录内的下级 `Outline_Notes.md`、任务清单、代码和自己的模块 Handover，绝不能修改 `M01_Module_Outline_Notes.md`。
-- 任务清单命名为 `编号_任务名称.md`，明确测试脚本、交付文件、允许目录和最后一行 `test=true/false` 及机器证据。
+- 模块会话只能修改模块工作目录内的 `M01_Outline_Notes.md` 进度摘要、任务清单、代码和自己的模块 Handover，绝不能修改 `M01_Module_Outline_Notes.md`。
+- 任务清单命名为 `编号_任务名称.md`，明确测试脚本、交付文件、允许目录和最后一行 `test=true/false` 及机器证据；任务会话另维护同目录的 `<编号>_Outline_Notes.md` 进度摘要。
 - 任务会话的交接文件命名为 `<任务编号>_<唯一会话ID>_Handover_Record.md`；同一文件只由创建它的会话修改。
 - 模块和任务会话不得修改上级 Outline、模块合同、任务清单或测试脚本。发现需求变化时，停止实现并交回主会话重新 document。
 
-跨会话不共享正在进行的 tracer bullet：新会话先读取上一会话 Handover，重新运行测试确认 RED/GREEN 状态，再继续下一个 bullet。
+跨会话不共享正在进行的 tracer bullet：新会话先读取本层 Outline 进度摘要，再读取上一会话 Handover，重新运行测试确认 RED/GREEN 状态，再继续下一个 bullet。进度摘要只保留“已完成、待完成、下次直接开始、当前哈希和阻塞”；详细历史留在 Handover 与事件日志。
 
 ## 工作目录结构
 
@@ -118,8 +118,10 @@ app/
 project/
 ├─ Outline_Notes.md                          # 项目主会话独占维护
 ├─ M01_Module_Outline_Notes.md               # 可选，模块合同，只读
-├─ modules/M01/Outline_Notes.md              # 可选，模块会话维护
-├─ tasks/                                     # 任务清单和测试脚本
+├─ M01_Outline_Notes.md                      # 可选，模块会话最新进度
+├─ tasks/                                     # 任务清单、测试脚本和任务 Outline
+│  ├─ 001_任务名称.md                        # 任务合同，只读
+│  └─ 001_Outline_Notes.md                   # 任务会话最新进度
 ├─ run/                                       # 事件、报告、机器证据、状态投影
 ├─ contracts/                                 # 已 seal 的任务合同
 ├─ docs/                                      # 需求和方案文档

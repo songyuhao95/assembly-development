@@ -8,6 +8,7 @@ project_outline_revision: {{OUTLINE_REVISION}}
 project_outline_sha256: {{OUTLINE_SHA256}}
 workdir: {{WORKDIR}}
 delivery_dir: {{DELIVERY_DIR}}
+progress_notes: {{MODULE_ID}}_Outline_Notes.md
 
 ## 交付物
 
